@@ -4,352 +4,393 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portfolio Clash - התנגשות התיקים</title>
-    <!-- טעינת פונט עברי מודרני -->
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-    <!-- אייקונים -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js ליצירת תרשים העוגה -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Heebo', sans-serif;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Heebo', sans-serif; }
         body {
-            background-color: #0d1117;
-            color: #f0f6fc;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            background-color: #0d1117; color: #f0f6fc; min-height: 100vh; display: flex;
+            flex-direction: column; align-items: center; padding: 20px;
             background-image: linear-gradient(rgba(13, 17, 23, 0.85), rgba(13, 17, 23, 0.95)), url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1920&q=80');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
+            background-size: cover; background-position: center; background-attachment: fixed;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-top: 20px;
+        .navbar {
+            width: 100%; max-width: 1300px; display: flex; justify-content: space-between;
+            align-items: center; background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
+            border-radius: 15px; padding: 10px 25px; margin-bottom: 25px; backdrop-filter: blur(10px);
         }
 
+        .nav-tabs { display: flex; gap: 15px; }
+        .tab-btn {
+            background: transparent; border: none; color: #8b949e; font-size: 1.05rem;
+            font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 8px;
+        }
+        .tab-btn:hover, .tab-btn.active { color: #ffc107; background: rgba(255, 193, 7, 0.1); }
+        .admin-tab-btn { color: #ff5555; display: none; }
+
+        .user-status { display: flex; align-items: center; gap: 12px; font-size: 0.95rem; }
+        .user-badge { color: #00ff87; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+        .btn-logout {
+            background: rgba(218, 54, 51, 0.2); color: #ff5555; border: 1px solid rgba(218, 54, 51, 0.4);
+            padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease;
+        }
+        .btn-logout:hover { background: #da3633; color: white; }
+
+        header { text-align: center; margin-bottom: 30px; }
         header h1 {
-            font-size: 4.5rem; 
-            font-weight: 900;
+            font-size: 4.5rem; font-weight: 900;
             background: linear-gradient(45deg, #ffc107, #ff6b6b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 15px;
-            text-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 15px;
         }
-
-        header p {
-            font-size: 1.3rem;
-            color: #c9d1d9;
-            max-width: 650px;
-            margin: 0 auto;
-            line-height: 1.5;
-        }
+        header p { font-size: 1.3rem; color: #c9d1d9; max-width: 650px; margin: 0 auto; line-height: 1.5; }
 
         .container {
-            background: rgba(22, 27, 34, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid #30363d;
-            border-radius: 20px;
-            padding: 30px;
-            width: 100%;
-            max-width: 800px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            margin-bottom: 30px;
+            background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(10px); border: 1px solid #30363d;
+            border-radius: 20px; padding: 30px; width: 100%; max-width: 800px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin-bottom: 30px;
         }
 
-        .box-title {
-            text-align: center;
-            color: #f0f6fc;
-            font-size: 1.4rem;
-            margin-bottom: 20px;
-            font-weight: 700;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .input-group.full-width {
-            grid-column: span 2;
-        }
-
-        label {
-            font-size: 0.95rem;
-            color: #8b949e;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .box-title { text-align: center; color: #f0f6fc; font-size: 1.4rem; margin-bottom: 20px; font-weight: 700; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .input-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        .input-group.full-width { grid-column: span 2; }
+        label { font-size: 0.95rem; color: #8b949e; margin-bottom: 8px; font-weight: 500; }
         input {
-            background-color: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 12px 15px;
-            color: #fff;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            background-color: #0d1117; border: 1px solid #30363d; border-radius: 10px;
+            padding: 12px 15px; color: #fff; font-size: 1rem; transition: all 0.3s ease;
         }
+        input:focus { outline: none; border-color: #ffc107; box-shadow: 0 0 10px rgba(255, 193, 7, 0.2); }
 
-        input:focus {
-            outline: none;
-            border-color: #ffc107;
-            box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
+        .btn-add, .btn-action {
+            background: linear-gradient(135deg, #238636, #2ea043); color: white; border: none;
+            padding: 14px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s; display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%;
         }
-
-        .btn-add {
-            grid-column: span 2;
-            background: linear-gradient(135deg, #238636, #2ea043);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: opacity 0.2s, transform 0.1s;
-            margin-top: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .btn-add:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-        }
-
-        .btn-add:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
+        .btn-add { grid-column: span 2; margin-top: 10px; }
+        .btn-approve { background: #238636; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
 
         .table-container {
-            width: 100%;
-            max-width: 1300px;
-            background: rgba(22, 27, 34, 0.9);
-            border-radius: 15px;
-            border: 1px solid #30363d;
-            overflow-x: auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            margin-bottom: 30px;
+            width: 100%; max-width: 1300px; background: rgba(22, 27, 34, 0.9);
+            border-radius: 15px; border: 1px solid #30363d; overflow-x: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: center;
-        }
-
-        th, td {
-            padding: 15px 10px;
-            border-bottom: 1px solid #30363d;
-            white-space: nowrap;
-        }
-
-        th {
-            background-color: rgba(13, 17, 23, 0.8);
-            color: #f0f6fc;
-            font-weight: bold;
-            font-size: 1rem;
-            line-height: 1.4;
-        }
-        
-        .th-sub {
-            display: block;
-            color: #8b949e;
-            font-size: 0.85rem;
-            font-weight: normal;
-            margin-top: 3px;
-        }
-
-        tbody tr:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-        }
+        table { width: 100%; border-collapse: collapse; text-align: center; }
+        th, td { padding: 15px 10px; border-bottom: 1px solid #30363d; white-space: nowrap; }
+        th { background-color: rgba(13, 17, 23, 0.8); color: #f0f6fc; font-weight: bold; font-size: 1rem; }
+        .th-sub { display: block; color: #8b949e; font-size: 0.85rem; font-weight: normal; margin-top: 3px; }
+        tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
 
         .profit-pos { color: #00ff87 !important; font-weight: bold; }
         .profit-neg { color: #ff5555 !important; font-weight: bold; }
+        .btn-delete { background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; }
 
-        .btn-delete {
-            background: #da3633;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
+        .news-links { display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .news-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+        .news-yahoo { background: rgba(114, 15, 255, 0.15); color: #a371f7; border: 1px solid rgba(114, 15, 255, 0.4); }
+        .news-investing { background: rgba(255, 122, 0, 0.15); color: #ff8c00; border: 1px solid rgba(255, 122, 0, 0.4); }
 
-        .btn-delete:hover {
-            background: #b62320;
-        }
-
-        /* עיצוב קישורי החדשות */
-        .news-links {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .news-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 10px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .news-yahoo {
-            background: rgba(114, 15, 255, 0.15);
-            color: #a371f7;
-            border: 1px solid rgba(114, 15, 255, 0.4);
-        }
-
-        .news-yahoo:hover {
-            background: #720fff;
-            color: #fff;
-        }
-
-        .news-investing {
-            background: rgba(255, 122, 0, 0.15);
-            color: #ff8c00;
-            border: 1px solid rgba(255, 122, 0, 0.4);
-        }
-
-        .news-investing:hover {
-            background: #ff7a00;
-            color: #fff;
-        }
-
-        /* עיצוב תיבת תרשים העוגה */
         .chart-box {
-            display: none;
-            width: 100%;
-            max-width: 600px;
-            background: rgba(22, 27, 34, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid #30363d;
-            border-radius: 20px;
-            padding: 25px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            margin-bottom: 30px;
-            text-align: center;
+            display: none; width: 100%; max-width: 600px; background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(10px); border: 1px solid #30363d; border-radius: 20px; padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin: 0 auto 30px auto; text-align: center;
         }
-
-        .chart-box h3 {
-            margin-bottom: 20px;
-            font-size: 1.3rem;
-            color: #ffc107;
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 320px;
-            width: 100%;
-        }
+        .chart-wrapper { position: relative; height: 320px; width: 100%; }
 
         @media (max-width: 800px) {
             .form-grid { grid-template-columns: 1fr; }
             .input-group.full-width, .btn-add { grid-column: span 1; }
             header h1 { font-size: 3rem; }
+            .navbar { flex-direction: column; gap: 15px; }
         }
     </style>
 </head>
 <body>
+
+    <nav class="navbar">
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('portfolio')"><i class="fa-solid fa-chart-pie"></i> התיק שלי</button>
+            <button class="tab-btn" onclick="switchTab('login')" id="loginTabBtn"><i class="fa-solid fa-user-lock"></i> התחבר / הרשמה</button>
+            <button class="tab-btn admin-tab-btn" onclick="switchTab('admin')" id="adminTabBtn"><i class="fa-solid fa-user-gear"></i> ניהול משתמשים (אישורים)</button>
+        </div>
+
+        <div class="user-status" id="userStatus">
+            <span class="user-badge"><i class="fa-solid fa-user-check"></i> סטטוס: <strong id="currentUsername">אורח (לא מחובר)</strong></span>
+            <button class="btn-logout" id="logoutBtn" onclick="logout()" style="display:none;"><i class="fa-solid fa-right-from-bracket"></i> התנתק</button>
+        </div>
+    </nav>
 
     <header>
         <h1>Portfolio Clash</h1>
         <p>ברוכים הבאים להתנגשות התיקים - המעקב אחרי התיק שלך.<br>תדע בדיוק מה קורה עם המניה שלך.</p>
     </header>
 
-    <div class="container">
-        <h3 class="box-title">הוסף מניות ובנה את טבלת המעקב המנצחת שלך.</h3>
-        
-        <div class="form-grid">
-            <div class="input-group">
-                <label for="symbol">סימבול (למשל: SOFI, AAPL)</label>
-                <input type="text" id="symbol" placeholder="הקלד סימבול...">
+    <!-- בלוק התיק -->
+    <div id="portfolioTab" class="tab-content active">
+        <div class="container">
+            <h3 class="box-title">הוסף מניות ובנה את טבלת המעקב המנצחת שלך.</h3>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label for="symbol">סימבול (למשל: SOFI, AAPL)</label>
+                    <input type="text" id="symbol" placeholder="הקלד סימבול...">
+                </div>
+                <div class="input-group">
+                    <label for="shares">כמות יחידות</label>
+                    <input type="number" id="shares" placeholder="כמה קנית?">
+                </div>
+                <div class="input-group full-width">
+                    <label for="buyPrice">מחיר קניה ליחידה ($)</label>
+                    <input type="number" step="0.01" id="buyPrice" placeholder="באיזה שער נכנסת?">
+                </div>
+                <button class="btn-add" id="addBtn" onclick="addStock()"><i class="fa-solid fa-plus"></i> הוסף מניה לתיק</button>
             </div>
+        </div>
 
-            <div class="input-group">
-                <label for="shares">כמות יחידות</label>
-                <input type="number" id="shares" placeholder="כמה קנית?">
-            </div>
+        <div class="table-container" dir="ltr">
+            <table id="portfolioTable">
+                <thead>
+                    <tr>
+                        <th>Symbol<span class="th-sub" dir="rtl">סימבול</span></th>
+                        <th dir="rtl">Name<span class="th-sub">שם המניה</span></th>
+                        <th>Shares<span class="th-sub" dir="rtl">כמות</span></th>
+                        <th>Buy Price<span class="th-sub" dir="rtl">שער כניסה</span></th>
+                        <th dir="rtl">Current Price<span class="th-sub">שער נוכחי בזמן אמת</span></th>
+                        <th>Total Cost<span class="th-sub" dir="rtl">עלות כוללת</span></th>
+                        <th>Current Val<span class="th-sub" dir="rtl">שווי נוכחי</span></th>
+                        <th>Profit / Loss ($)<span class="th-sub" dir="rtl">רווח / הפסד</span></th>
+                        <th>Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
+                        <th dir="rtl">Action<span class="th-sub">פעולה</span></th>
+                        <th dir="rtl">News<span class="th-sub">חדשות</span></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
 
-            <div class="input-group full-width">
-                <label for="buyPrice">מחיר קניה ליחידה ($)</label>
-                <input type="number" step="0.01" id="buyPrice" placeholder="באיזה שער נכנסת?">
-            </div>
-
-            <button class="btn-add" id="addBtn" onclick="addStock()">
-                <i class="fa-solid fa-plus"></i> הוסף מניה לתיק
-            </button>
+        <div class="chart-box">
+            <h3>חלוקת תיק ההשקעות (אחוזים לפי שווי)</h3>
+            <div class="chart-wrapper"><canvas id="portfolioChart"></canvas></div>
         </div>
     </div>
 
-    <div class="table-container" dir="ltr">
-        <table id="portfolioTable">
-            <thead>
-                <tr>
-                    <th>Symbol<span class="th-sub" dir="rtl">סימבול</span></th>
-                    <th dir="rtl">Name<span class="th-sub">שם המניה</span></th>
-                    <th>Shares<span class="th-sub" dir="rtl">כמות</span></th>
-                    <th>Buy Price<span class="th-sub" dir="rtl">שער כניסה</span></th>
-                    <th dir="rtl">Current Price<span class="th-sub">שער נוכחי בזמן אמת</span></th>
-                    <th>Total Cost<span class="th-sub" dir="rtl">עלות כוללת</span></th>
-                    <th>Current Val<span class="th-sub" dir="rtl">שווי נוכחי</span></th>
-                    <th>Profit / Loss ($)<span class="th-sub" dir="rtl">רווח / הפסד</span></th>
-                    <th>Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
-                    <th dir="rtl">Action<span class="th-sub">פעולה</span></th>
-                    <th dir="rtl">News<span class="th-sub">חדשות</span></th>
-                </tr>
-            </thead>
-            <tbody id="tableBody">
-                <!-- השורות יתווספו לכאן -->
-            </tbody>
-        </table>
+    <!-- בלוק התחברות / הרשמה -->
+    <div id="loginTab" class="tab-content">
+        <div class="container">
+            <h3 class="box-title"><i class="fa-solid fa-user-shield"></i> התחברות / הרשמה למערכת</h3>
+            
+            <div class="input-group">
+                <label for="authEmail">אימייל</label>
+                <input type="email" id="authEmail" placeholder="user@example.com">
+            </div>
+            <div class="input-group">
+                <label for="authPassword">סיסמה</label>
+                <input type="password" id="authPassword" placeholder="******">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-action" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> התחבר</button>
+                <button class="btn-action" style="background: #388bfd;" onclick="register()"><i class="fa-solid fa-user-plus"></i> בקש הרשמה</button>
+            </div>
+        </div>
     </div>
 
-    <!-- תרשים עוגה (חלוקה באחוזים) -->
-    <div class="chart-box">
-        <h3>חלוקת תיק ההשקעות (אחוזים לפי שווי)</h3>
-        <div class="chart-wrapper">
-            <canvas id="portfolioChart"></canvas>
+    <!-- בלוק ניהול משתמשים (עבור המנהל בלבד) -->
+    <div id="adminTab" class="tab-content">
+        <div class="container" style="max-width: 1000px;">
+            <h3 class="box-title"><i class="fa-solid fa-user-check"></i> אישור משתמשים חדשים</h3>
+            <div class="table-container" dir="rtl">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>אימייל משתמש</th>
+                            <th>סטטוס אישור</th>
+                            <th>פעולה</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminUsersBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script>
-        // API Key שילוב ישיר
+        // המפתחות שלך שנוצרו ב-Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyASJW8HIsfQ-S7CbAuxgaFbSj0CutgN8ZY",
+            authDomain: "portfolio-clash-3e70d.firebaseapp.com",
+            projectId: "portfolio-clash-3e70d",
+            storageBucket: "portfolio-clash-3e70d.firebasestorage.app",
+            messagingSenderId: "903714514589",
+            appId: "1:903714514589:web:860cc0a17296634f7ad674",
+            measurementId: "G-B23YYE9YQZ"
+        };
+
+        // אימייל המנהל הראשי של המערכת
+        const ADMIN_EMAIL = "shlomi19871@gmail.com";
+
         const API_KEY = "d9p11a9r01qh40a7cb4gd9p11a9r01qh40a7cb50";
+
+        // אתחול Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
         let portfolio = [];
         let myChart = null;
+        let currentUser = null;
+
+        // האזנה לשינוי מצב משתמש
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // בדיקת סטטוס אישור המשתמש במסד הנתונים
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().approved) {
+                    currentUser = user;
+                    document.getElementById('currentUsername').innerText = user.email;
+                    document.getElementById('logoutBtn').style.display = 'block';
+
+                    // בדיקה אם המשתמש הוא המנהל
+                    if (user.email === ADMIN_EMAIL) {
+                        document.getElementById('adminTabBtn').style.display = 'flex';
+                    }
+
+                    loadCloudPortfolio();
+                } else {
+                    alert("החשבון שלך ממתין לאישור מנהל המערכת.");
+                    auth.signOut();
+                }
+            } else {
+                currentUser = null;
+                document.getElementById('currentUsername').innerText = 'אורח (לא מחובר)';
+                document.getElementById('logoutBtn').style.display = 'none';
+                document.getElementById('adminTabBtn').style.display = 'none';
+                portfolio = [];
+                renderTable();
+            }
+        });
+
+        // הרשמת משתמש חדש בסטטוס "לא מאושר"
+        async function register() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            if (!email || !password) return alert("אנא הזן אימייל וסיסמה.");
+
+            try {
+                const res = await auth.createUserWithEmailAndPassword(email, password);
+                const isAutoAdmin = (email === ADMIN_EMAIL);
+                await db.collection('users').doc(res.user.uid).set({
+                    email: email,
+                    approved: isAutoAdmin
+                });
+                
+                if (isAutoAdmin) {
+                    alert("נרשמת כאיש ניהול! החשבון מאושר אוטומטית.");
+                } else {
+                    alert("בקשת ההרשמה נשלחה! החשבון יופעל רק לאחר אישור מנהל.");
+                    auth.signOut();
+                }
+            } catch (err) {
+                alert("שגיאה בהרשמה: " + err.message);
+            }
+        }
+
+        // התחברות
+        async function login() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            if (!email || !password) return alert("אנא הזן אימייל וסיסמה.");
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                switchTab('portfolio');
+            } catch (err) {
+                alert("שגיאה בהתחברות: " + err.message);
+            }
+        }
+
+        function logout() {
+            auth.signOut();
+        }
+
+        // טעינת תיק מניות מהענן
+        async function loadCloudPortfolio() {
+            if (!currentUser) return;
+            const doc = await db.collection('portfolios').doc(currentUser.uid).get();
+            if (doc.exists) {
+                portfolio = doc.data().items || [];
+            } else {
+                portfolio = [];
+            }
+            renderTable();
+        }
+
+        // שמירת תיק מניות בענן
+        async function saveCloudPortfolio() {
+            if (!currentUser) return;
+            await db.collection('portfolios').doc(currentUser.uid).set({
+                items: portfolio
+            });
+        }
+
+        // טעינת רשימת משתמשים לפאנל הניהול
+        async function loadAdminUsers() {
+            const tbody = document.getElementById('adminUsersBody');
+            tbody.innerHTML = '';
+            const snapshot = await db.collection('users').get();
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${data.email}</td>
+                    <td style="color: ${data.approved ? '#00ff87' : '#ff5555'}">${data.approved ? 'מאושר' : 'ממתין לאישור'}</td>
+                    <td>
+                        ${!data.approved ? `<button class="btn-approve" onclick="approveUser('${doc.id}')">אשר משתמש</button>` : 'מאושר'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function approveUser(uid) {
+            await db.collection('users').doc(uid).update({ approved: true });
+            alert("המשתמש אושר בהצלחה!");
+            loadAdminUsers();
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'portfolio') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('portfolioTab').classList.add('active');
+            } else if (tabName === 'login') {
+                document.getElementById('loginTabBtn').classList.add('active');
+                document.getElementById('loginTab').classList.add('active');
+            } else if (tabName === 'admin') {
+                document.getElementById('adminTabBtn').classList.add('active');
+                document.getElementById('adminTab').classList.add('active');
+                loadAdminUsers();
+            }
+        }
 
         async function addStock() {
+            if (!currentUser) {
+                alert("עליך להתחבר ולהיות מאושר על ידי המנהל כדי להוסיף מניות ולשמור אותן בענן.");
+                return;
+            }
+
             const symbolInput = document.getElementById('symbol').value.trim().toUpperCase();
             const shares = parseFloat(document.getElementById('shares').value);
             const buyPrice = parseFloat(document.getElementById('buyPrice').value);
@@ -368,59 +409,47 @@
                 const quoteData = await quoteResponse.json();
 
                 if (!quoteData || !quoteData.c || quoteData.c === 0) {
-                    alert("לא ניתן למצוא נתונים עבור סימבול זה. ודא שהסימבול נכון.");
+                    alert("לא ניתן למצוא נתונים עבור סימבול זה.");
                     return;
                 }
 
                 const currentPrice = quoteData.c;
-
                 let companyName = symbolInput;
+                
                 try {
                     const profileResponse = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbolInput}&token=${API_KEY}`);
                     const profileData = await profileResponse.json();
-                    if (profileData && profileData.name) {
-                        companyName = profileData.name;
-                    }
-                } catch(e) {
-                    console.log("משתמש בסימבול כתרשים שם");
-                }
+                    if (profileData && profileData.name) companyName = profileData.name;
+                } catch(e) {}
 
                 const totalCost = shares * buyPrice;
                 const currentValue = shares * currentPrice;
                 const profitDollar = currentValue - totalCost;
                 const profitPercent = (profitDollar / totalCost) * 100;
 
-                const newStock = {
-                    symbol: symbolInput,
-                    name: companyName,
-                    shares: shares,
-                    buyPrice: buyPrice,
-                    currentPrice: currentPrice,
-                    totalCost: totalCost,
-                    currentValue: currentValue,
-                    profitDollar: profitDollar,
-                    profitPercent: profitPercent
-                };
+                portfolio.push({
+                    symbol: symbolInput, name: companyName, shares, buyPrice, currentPrice,
+                    totalCost, currentValue, profitDollar, profitPercent
+                });
 
-                portfolio.push(newStock);
-                
+                await saveCloudPortfolio();
+
                 document.getElementById('symbol').value = '';
                 document.getElementById('shares').value = '';
                 document.getElementById('buyPrice').value = '';
-
                 renderTable();
 
             } catch (error) {
-                console.error("שגיאה במשיכת נתונים:", error);
-                alert("תרחשה שגיאה בתקשורת מול ה-API.");
+                alert("שגיאה במשיכת נתונים.");
             } finally {
                 addBtn.disabled = false;
                 addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> הוסף מניה לתיק';
             }
         }
 
-        function deleteStock(index) {
+        async function deleteStock(index) {
             portfolio.splice(index, 1);
+            await saveCloudPortfolio();
             renderTable();
         }
 
@@ -436,11 +465,8 @@
 
             portfolio.forEach((stock, index) => {
                 const tr = document.createElement('tr');
-                
                 const profitClass = stock.profitDollar >= 0 ? 'profit-pos' : 'profit-neg';
                 const sign = stock.profitDollar >= 0 ? '+' : '';
-
-                // קישורים לחדשות המניה
                 const yahooUrl = `https://finance.yahoo.com/quote/${stock.symbol}/news`;
                 const investingUrl = `https://www.investing.com/search/?q=${stock.symbol}`;
 
@@ -454,19 +480,14 @@
                     <td>$${stock.currentValue.toFixed(2)}</td>
                     <td class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
                     <td class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
-                    <td><button class="btn-delete" onclick="deleteStock(${index})" title="מחק שורה"><i class="fa-solid fa-trash"></i></button></td>
+                    <td><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
                     <td>
                         <div class="news-links">
-                            <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo" title="חדשות ב-Yahoo Finance">
-                                <i class="fa-solid fa-newspaper"></i> Yahoo
-                            </a>
-                            <a href="${investingUrl}" target="_blank" class="news-btn news-investing" title="חדשות ב-Investing.com">
-                                <i class="fa-solid fa-chart-line"></i> Investing
-                            </a>
+                            <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo"><i class="fa-solid fa-newspaper"></i> Yahoo</a>
+                            <a href="${investingUrl}" target="_blank" class="news-btn news-investing"><i class="fa-solid fa-chart-line"></i> Investing</a>
                         </div>
                     </td>
                 `;
-                
                 tbody.appendChild(tr);
             });
 
@@ -475,26 +496,17 @@
 
         function updateChart() {
             const chartBox = document.querySelector('.chart-box');
-            
             if (portfolio.length === 0) {
                 chartBox.style.display = 'none';
-                if (myChart) {
-                    myChart.destroy();
-                    myChart = null;
-                }
+                if (myChart) { myChart.destroy(); myChart = null; }
                 return;
             }
 
             chartBox.style.display = 'block';
             const ctx = document.getElementById('portfolioChart').getContext('2d');
-
             const labels = portfolio.map(item => item.symbol);
             const dataValues = portfolio.map(item => item.currentValue);
-
-            const palette = [
-                '#ffc107', '#2ea043', '#388bfd', '#ff6b6b', 
-                '#a371f7', '#f0883e', '#7ee787', '#79c0ff'
-            ];
+            const palette = ['#ffc107', '#2ea043', '#388bfd', '#ff6b6b', '#a371f7', '#f0883e', '#7ee787', '#79c0ff'];
 
             if (myChart) {
                 myChart.data.labels = labels;
@@ -506,41 +518,12 @@
                     type: 'pie',
                     data: {
                         labels: labels,
-                        datasets: [{
-                            data: dataValues,
-                            backgroundColor: palette.slice(0, labels.length),
-                            borderWidth: 2,
-                            borderColor: '#161b22'
-                        }]
+                        datasets: [{ data: dataValues, backgroundColor: palette.slice(0, labels.length), borderWidth: 2, borderColor: '#161b22' }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: '#f0f6fc',
-                                    font: { family: 'Heebo', size: 14 }
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const value = context.parsed;
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((value / total) * 100).toFixed(1);
-                                        return ` ${context.label}: $${value.toFixed(2)} (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false }
                 });
             }
         }
-
-        window.onload = renderTable;
     </script>
 </body>
 </html>
