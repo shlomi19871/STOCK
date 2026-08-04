@@ -145,7 +145,7 @@
 
         .table-container {
             width: 100%;
-            max-width: 1200px;
+            max-width: 1300px;
             background: rgba(22, 27, 34, 0.9);
             border-radius: 15px;
             border: 1px solid #30363d;
@@ -201,6 +201,48 @@
 
         .btn-delete:hover {
             background: #b62320;
+        }
+
+        /* עיצוב קישורי החדשות */
+        .news-links {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .news-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .news-yahoo {
+            background: rgba(114, 15, 255, 0.15);
+            color: #a371f7;
+            border: 1px solid rgba(114, 15, 255, 0.4);
+        }
+
+        .news-yahoo:hover {
+            background: #720fff;
+            color: #fff;
+        }
+
+        .news-investing {
+            background: rgba(255, 122, 0, 0.15);
+            color: #ff8c00;
+            border: 1px solid rgba(255, 122, 0, 0.4);
+        }
+
+        .news-investing:hover {
+            background: #ff7a00;
+            color: #fff;
         }
 
         /* עיצוב תיבת תרשים העוגה */
@@ -283,6 +325,7 @@
                     <th>Profit / Loss ($)<span class="th-sub" dir="rtl">רווח / הפסד</span></th>
                     <th>Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
                     <th dir="rtl">Action<span class="th-sub">פעולה</span></th>
+                    <th dir="rtl">News<span class="th-sub">חדשות</span></th>
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -386,7 +429,7 @@
             tbody.innerHTML = ''; 
 
             if (portfolio.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>';
                 updateChart();
                 return;
             }
@@ -396,6 +439,10 @@
                 
                 const profitClass = stock.profitDollar >= 0 ? 'profit-pos' : 'profit-neg';
                 const sign = stock.profitDollar >= 0 ? '+' : '';
+
+                // קישורים לחדשות המניה
+                const yahooUrl = `https://finance.yahoo.com/quote/${stock.symbol}/news`;
+                const investingUrl = `https://www.investing.com/search/?q=${stock.symbol}`;
 
                 tr.innerHTML = `
                     <td style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
@@ -408,6 +455,16 @@
                     <td class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
                     <td class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
                     <td><button class="btn-delete" onclick="deleteStock(${index})" title="מחק שורה"><i class="fa-solid fa-trash"></i></button></td>
+                    <td>
+                        <div class="news-links">
+                            <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo" title="חדשות ב-Yahoo Finance">
+                                <i class="fa-solid fa-newspaper"></i> Yahoo
+                            </a>
+                            <a href="${investingUrl}" target="_blank" class="news-btn news-investing" title="חדשות ב-Investing.com">
+                                <i class="fa-solid fa-chart-line"></i> Investing
+                            </a>
+                        </div>
+                    </td>
                 `;
                 
                 tbody.appendChild(tr);
