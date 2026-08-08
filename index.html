@@ -87,6 +87,34 @@
         }
         .modal-close:hover { color: #ff5555; }
 
+        /* כפתור אפשרויות תצוגת טבלה */
+        .table-options-bar { width: 100%; max-width: 1300px; display: flex; justify-content: flex-start; margin-bottom: 15px; }
+        .btn-table-options {
+            background: rgba(56, 139, 253, 0.15); color: #79c0ff; border: 1px solid rgba(56, 139, 253, 0.4);
+            padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: 0.95rem; font-weight: 700;
+            display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
+        }
+        .btn-table-options:hover { background: rgba(56, 139, 253, 0.3); }
+        .column-checkbox-list { display: flex; flex-direction: column; gap: 12px; max-height: 50vh; overflow-y: auto; margin-bottom: 10px; }
+        .column-checkbox-row {
+            display: flex; align-items: center; justify-content: space-between; background: rgba(13,17,23,0.5);
+            border: 1px solid #30363d; border-radius: 10px; padding: 10px 15px;
+        }
+        .column-checkbox-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ffc107; cursor: pointer; }
+
+        /* שורה תחתונה: עוגה + תחזית */
+        .bottom-row { display: flex; gap: 25px; justify-content: center; align-items: flex-start; flex-wrap: wrap; width: 100%; max-width: 1300px; margin: 0 auto; }
+        .chart-box, .forecast-box { max-width: 560px; flex: 1 1 400px; margin: 0; }
+        .forecast-box {
+            display: none; background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(10px); border: 1px solid #30363d;
+            border-radius: 20px; padding: 25px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .forecast-tab-btn {
+            flex: 1; background: rgba(13,17,23,0.6); border: 1px solid #30363d; color: #8b949e;
+            padding: 10px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.9rem; transition: all 0.2s ease;
+        }
+        .forecast-tab-btn.active { color: #ffc107; border-color: #ffc107; background: rgba(255, 193, 7, 0.1); }
+
         .container {
             background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(10px); border: 1px solid #30363d;
             border-radius: 20px; padding: 30px; width: 100%; max-width: 800px;
@@ -135,17 +163,43 @@
         .news-investing { background: rgba(255, 122, 0, 0.15); color: #ff8c00; border: 1px solid rgba(255, 122, 0, 0.4); }
 
         .chart-box {
-            display: none; width: 100%; max-width: 600px; background: rgba(22, 27, 34, 0.85);
+            display: none; width: 100%; background: rgba(22, 27, 34, 0.85);
             backdrop-filter: blur(10px); border: 1px solid #30363d; border-radius: 20px; padding: 25px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin: 0 auto 30px auto; text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin: 0; text-align: center;
         }
         .chart-wrapper { position: relative; height: 320px; width: 100%; }
 
         @media (max-width: 800px) {
             .form-grid { grid-template-columns: 1fr; }
             .input-group.full-width, .btn-add { grid-column: span 1; }
-            header h1 { font-size: 3rem; }
-            .navbar { flex-direction: column; gap: 15px; }
+            header h1 { font-size: 2.6rem; }
+            header .subtitle-hebrew { font-size: 1.3rem; }
+            header p { font-size: 1.05rem; padding: 0 10px; }
+            .navbar { flex-direction: column; gap: 12px; padding: 12px 15px; }
+            .nav-tabs { flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+            .tab-btn { font-size: 0.85rem; padding: 8px 10px; }
+            .user-status { flex-wrap: wrap; justify-content: center; text-align: center; }
+            .container, .table-container, .chart-box, .forecast-box { padding: 15px; border-radius: 14px; }
+            th, td { padding: 10px 8px; font-size: 0.85rem; }
+            .box-title { font-size: 1.15rem; }
+            .modal-box { padding: 20px; max-width: 100%; }
+            .stats-row { flex-direction: column; }
+            .bottom-row { flex-direction: column; align-items: center; }
+            .chart-box, .forecast-box { max-width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            header h1 { font-size: 2rem; }
+            header .subtitle-hebrew { font-size: 1.1rem; }
+            header p { font-size: 0.95rem; }
+            .navbar { border-radius: 12px; }
+            .tab-btn { font-size: 0.78rem; padding: 7px 8px; gap: 5px; }
+            .box-title { font-size: 1rem; }
+            input, select { padding: 10px 12px; font-size: 0.95rem; }
+            .btn-add, .btn-action { font-size: 1rem; padding: 12px; }
+            th, td { padding: 8px 6px; font-size: 0.78rem; }
+            .stat-value { font-size: 1.7rem; }
         }
     </style>
 </head>
@@ -192,30 +246,77 @@
             </div>
         </div>
 
+        <div class="table-options-bar">
+            <button class="btn-table-options" onclick="openColumnOptions()"><i class="fa-solid fa-table-columns"></i> התאמת עמודות בטבלה</button>
+        </div>
+
         <div class="table-container" dir="ltr">
             <table id="portfolioTable">
                 <thead>
                     <tr>
-                        <th>Symbol<span class="th-sub" dir="rtl">סימבול</span></th>
-                        <th dir="rtl">Name<span class="th-sub">שם המניה</span></th>
-                        <th>Shares<span class="th-sub" dir="rtl">כמות</span></th>
-                        <th>Buy Price<span class="th-sub" dir="rtl">שער כניסה</span></th>
-                        <th dir="rtl">Current Price<span class="th-sub">שער נוכחי בזמן אמת</span></th>
-                        <th>Total Cost<span class="th-sub" dir="rtl">עלות כוללת</span></th>
-                        <th>Current Val<span class="th-sub" dir="rtl">שווי נוכחי</span></th>
-                        <th>Profit / Loss ($)<span class="th-sub" dir="rtl">רווח / הפסד</span></th>
-                        <th>Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
-                        <th dir="rtl">Action<span class="th-sub">פעולה</span></th>
-                        <th dir="rtl">News<span class="th-sub">חדשות</span></th>
+                        <th data-col="symbol">Symbol<span class="th-sub" dir="rtl">סימבול</span></th>
+                        <th data-col="name" dir="rtl">Name<span class="th-sub">שם המניה</span></th>
+                        <th data-col="shares">Shares<span class="th-sub" dir="rtl">כמות</span></th>
+                        <th data-col="buyPrice">Buy Price<span class="th-sub" dir="rtl">שער כניסה</span></th>
+                        <th data-col="currentPrice" dir="rtl">Current Price<span class="th-sub">שער נוכחי בזמן אמת</span></th>
+                        <th data-col="totalCost">Total Cost<span class="th-sub" dir="rtl">עלות כוללת</span></th>
+                        <th data-col="currentValue">Current Val<span class="th-sub" dir="rtl">שווי נוכחי</span></th>
+                        <th data-col="profitDollar">Profit / Loss ($)<span class="th-sub" dir="rtl">רווח / הפסד</span></th>
+                        <th data-col="profitPercent">Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
+                        <th data-col="risk" dir="rtl">Risk<span class="th-sub">מדד סיכון</span></th>
+                        <th data-col="distanceHigh" dir="rtl">From High<span class="th-sub">מרחק משיא</span></th>
+                        <th data-col="action" dir="rtl">Action<span class="th-sub">פעולה</span></th>
+                        <th data-col="news" dir="rtl">News<span class="th-sub">חדשות</span></th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
 
-        <div class="chart-box">
-            <h3>חלוקת תיק ההשקעות (אחוזים לפי שווי)</h3>
-            <div class="chart-wrapper"><canvas id="portfolioChart"></canvas></div>
+        <div class="bottom-row">
+            <div class="chart-box">
+                <h3>חלוקת תיק ההשקעות (אחוזים לפי שווי)</h3>
+                <div class="chart-wrapper"><canvas id="portfolioChart"></canvas></div>
+            </div>
+
+            <div class="forecast-box" id="forecastBox">
+                <h3 class="box-title"><i class="fa-solid fa-wand-magic-sparkles"></i> תחזית תשואה עתידית</h3>
+                <div class="input-group">
+                    <label for="forecastStock">בחר מניה מהתיק</label>
+                    <select id="forecastStock" onchange="updateForecast()"></select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 18px;">
+                    <button class="forecast-tab-btn active" id="forecastTabProfit" onclick="switchForecastTab('profit')">רווח לפי יעד %</button>
+                    <button class="forecast-tab-btn" id="forecastTabStop" onclick="switchForecastTab('stop')">סטופ (הפסד)</button>
+                </div>
+
+                <div id="forecastProfitPanel">
+                    <div class="input-group">
+                        <label for="forecastPercent">יעד רווח באחוזים (מהמחיר הנוכחי)</label>
+                        <select id="forecastPercent" onchange="updateForecast()">
+                            <option value="5">5%</option>
+                            <option value="10">10%</option>
+                            <option value="15">15%</option>
+                            <option value="20">20%</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>רווח משוער בתרחיש זה</label>
+                        <input type="text" id="forecastProfitResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
+                    </div>
+                </div>
+
+                <div id="forecastStopPanel" style="display: none;">
+                    <div class="input-group">
+                        <label for="forecastStopPrice">מחיר סטופ (שער יציאה)</label>
+                        <input type="number" step="0.01" id="forecastStopPrice" oninput="updateForecast()" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>הפסד / רווח משוער בתרחיש זה</label>
+                        <input type="text" id="forecastStopResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -302,6 +403,16 @@
                 <label for="calcResult">רווח / הפסד</label>
                 <input type="text" id="calcResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
             </div>
+        </div>
+    </div>
+
+    <!-- מודאל התאמת עמודות בטבלה -->
+    <div id="columnModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeColumnOptions()"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="box-title"><i class="fa-solid fa-table-columns"></i> התאמת עמודות בטבלה</h3>
+            <div class="column-checkbox-list" id="columnCheckboxList"></div>
+            <button class="btn-action" style="background: #388bfd;" onclick="closeColumnOptions()">סגור</button>
         </div>
     </div>
 
@@ -433,6 +544,126 @@
 
         function logout() {
             auth.signOut();
+        }
+
+        // ===== התאמת עמודות בטבלה =====
+        const TABLE_COLUMNS = [
+            { id: 'symbol', label: 'סימבול' },
+            { id: 'name', label: 'שם המניה' },
+            { id: 'shares', label: 'כמות יחידות' },
+            { id: 'buyPrice', label: 'שער כניסה' },
+            { id: 'currentPrice', label: 'שער נוכחי' },
+            { id: 'totalCost', label: 'עלות כוללת' },
+            { id: 'currentValue', label: 'שווי נוכחי' },
+            { id: 'profitDollar', label: 'רווח / הפסד ($)' },
+            { id: 'profitPercent', label: 'רווח / הפסד (%)' },
+            { id: 'risk', label: 'מדד סיכון' },
+            { id: 'distanceHigh', label: 'מרחק משיא' },
+            { id: 'action', label: 'מחיקה' },
+            { id: 'news', label: 'חדשות' }
+        ];
+
+        function getColumnPrefs() {
+            try {
+                return JSON.parse(localStorage.getItem('tableColumnPrefs') || '{}');
+            } catch(e) { return {}; }
+        }
+
+        function populateColumnModal() {
+            const list = document.getElementById('columnCheckboxList');
+            const prefs = getColumnPrefs();
+            list.innerHTML = TABLE_COLUMNS.map(col => {
+                const checked = prefs[col.id] === false ? '' : 'checked';
+                return `
+                    <div class="column-checkbox-row">
+                        <label for="colcheck-${col.id}" style="margin:0; color:#f0f6fc; cursor:pointer;">${col.label}</label>
+                        <input type="checkbox" id="colcheck-${col.id}" ${checked} onchange="toggleColumn('${col.id}', this.checked)">
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleColumn(colId, isChecked) {
+            const prefs = getColumnPrefs();
+            prefs[colId] = isChecked;
+            localStorage.setItem('tableColumnPrefs', JSON.stringify(prefs));
+            applyColumnVisibility();
+        }
+
+        function applyColumnVisibility() {
+            const prefs = getColumnPrefs();
+            TABLE_COLUMNS.forEach(col => {
+                const visible = prefs[col.id] !== false;
+                document.querySelectorAll(`[data-col="${col.id}"]`).forEach(el => {
+                    el.style.display = visible ? '' : 'none';
+                });
+            });
+        }
+
+        function openColumnOptions() {
+            populateColumnModal();
+            document.getElementById('columnModalOverlay').style.display = 'flex';
+        }
+        function closeColumnOptions() {
+            document.getElementById('columnModalOverlay').style.display = 'none';
+        }
+
+        // ===== תחזית תשואה עתידית =====
+        function updateForecastStockList() {
+            const forecastBox = document.getElementById('forecastBox');
+            const select = document.getElementById('forecastStock');
+
+            if (portfolio.length === 0) {
+                forecastBox.style.display = 'none';
+                return;
+            }
+            forecastBox.style.display = 'block';
+
+            const prevValue = select.value;
+            select.innerHTML = portfolio.map((s, i) => `<option value="${i}">${s.symbol} — ${s.name}</option>`).join('');
+            if (prevValue && portfolio[prevValue]) select.value = prevValue;
+
+            updateForecast();
+        }
+
+        function switchForecastTab(tab) {
+            document.getElementById('forecastTabProfit').classList.toggle('active', tab === 'profit');
+            document.getElementById('forecastTabStop').classList.toggle('active', tab === 'stop');
+            document.getElementById('forecastProfitPanel').style.display = tab === 'profit' ? 'block' : 'none';
+            document.getElementById('forecastStopPanel').style.display = tab === 'stop' ? 'block' : 'none';
+            updateForecast();
+        }
+
+        function updateForecast() {
+            const select = document.getElementById('forecastStock');
+            const idx = parseInt(select.value);
+            const stock = portfolio[idx];
+            if (!stock) return;
+
+            // פאנל רווח לפי יעד אחוזים (מהמחיר הנוכחי)
+            const targetPercent = parseFloat(document.getElementById('forecastPercent').value);
+            const targetPrice = stock.currentPrice * (1 + targetPercent / 100);
+            const targetValue = stock.shares * targetPrice;
+            const targetProfitDollar = targetValue - stock.totalCost;
+            const targetProfitPercent = (targetProfitDollar / stock.totalCost) * 100;
+            const profitResult = document.getElementById('forecastProfitResult');
+            const pSign = targetProfitDollar >= 0 ? '+' : '';
+            profitResult.value = `${pSign}$${Math.abs(targetProfitDollar).toFixed(2)}  (${pSign}${Math.abs(targetProfitPercent).toFixed(2)}%)`;
+            profitResult.style.color = targetProfitDollar >= 0 ? '#00ff87' : '#ff5555';
+
+            // פאנל סטופ (הפסד/רווח בשער יציאה שנבחר)
+            const stopPriceInput = document.getElementById('forecastStopPrice');
+            const stopResult = document.getElementById('forecastStopResult');
+            const stopPrice = parseFloat(stopPriceInput.value);
+            if (isNaN(stopPrice) || stopPrice <= 0) {
+                stopResult.value = '';
+                return;
+            }
+            const stopDollar = (stopPrice - stock.buyPrice) * stock.shares;
+            const stopPercent = ((stopPrice - stock.buyPrice) / stock.buyPrice) * 100;
+            const sSign = stopDollar >= 0 ? '+' : '';
+            stopResult.value = `${sSign}$${Math.abs(stopDollar).toFixed(2)}  (${sSign}${Math.abs(stopPercent).toFixed(2)}%)`;
+            stopResult.style.color = stopDollar >= 0 ? '#00ff87' : '#ff5555';
         }
 
         // מחשבון תשואה
@@ -616,6 +847,24 @@
                     if (profileData && profileData.name) companyName = profileData.name;
                 } catch(e) {}
 
+                // מדד סיכון (לפי בטא) ומרחק משיא 52 השבועות (הקרוב ביותר לזמין דרך ה-API החינמי)
+                let riskLabel = 'לא זמין', riskColor = '#8b949e', distanceFromHigh = null;
+                try {
+                    const metricResponse = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbolInput}&metric=all&token=${API_KEY}`);
+                    const metricData = await metricResponse.json();
+                    const beta = metricData?.metric?.beta;
+                    const week52High = metricData?.metric?.['52WeekHigh'];
+
+                    if (typeof beta === 'number') {
+                        if (beta < 0.8) { riskLabel = 'נמוך'; riskColor = '#00ff87'; }
+                        else if (beta <= 1.3) { riskLabel = 'בינוני'; riskColor = '#ffc107'; }
+                        else { riskLabel = 'גבוה'; riskColor = '#ff5555'; }
+                    }
+                    if (typeof week52High === 'number' && week52High > 0) {
+                        distanceFromHigh = ((week52High - currentPrice) / week52High) * 100;
+                    }
+                } catch(e) {}
+
                 const totalCost = shares * buyPrice;
                 const currentValue = shares * currentPrice;
                 const profitDollar = currentValue - totalCost;
@@ -623,7 +872,8 @@
 
                 portfolio.push({
                     symbol: symbolInput, name: companyName, shares, buyPrice, currentPrice,
-                    totalCost, currentValue, profitDollar, profitPercent
+                    totalCost, currentValue, profitDollar, profitPercent,
+                    riskLabel, riskColor, distanceFromHigh
                 });
 
                 if (currentUser) {
@@ -663,8 +913,10 @@
             tbody.innerHTML = ''; 
 
             if (portfolio.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>';
                 updateChart();
+                updateForecastStockList();
+                applyColumnVisibility();
                 return;
             }
 
@@ -675,18 +927,26 @@
                 const yahooUrl = `https://finance.yahoo.com/quote/${stock.symbol}/news`;
                 const investingUrl = `https://www.investing.com/search/?q=${stock.symbol}`;
 
+                const riskLabel = stock.riskLabel || 'לא זמין';
+                const riskColor = stock.riskColor || '#8b949e';
+                const hasDistance = typeof stock.distanceFromHigh === 'number';
+                const distanceText = hasDistance ? `${stock.distanceFromHigh >= 0 ? '-' : '+'}${Math.abs(stock.distanceFromHigh).toFixed(1)}%` : '—';
+                const distanceColor = hasDistance ? (stock.distanceFromHigh <= 5 ? '#00ff87' : (stock.distanceFromHigh <= 20 ? '#ffc107' : '#ff5555')) : '#8b949e';
+
                 tr.innerHTML = `
-                    <td style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
-                    <td dir="rtl">${stock.name}</td>
-                    <td>${stock.shares}</td>
-                    <td>$${stock.buyPrice.toFixed(2)}</td>
-                    <td style="font-weight:bold; color: #ffc107;">$${stock.currentPrice.toFixed(2)}</td>
-                    <td>$${stock.totalCost.toFixed(2)}</td>
-                    <td>$${stock.currentValue.toFixed(2)}</td>
-                    <td class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
-                    <td class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
-                    <td><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
-                    <td>
+                    <td data-col="symbol" style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
+                    <td data-col="name" dir="rtl">${stock.name}</td>
+                    <td data-col="shares">${stock.shares}</td>
+                    <td data-col="buyPrice">$${stock.buyPrice.toFixed(2)}</td>
+                    <td data-col="currentPrice" style="font-weight:bold; color: #ffc107;">$${stock.currentPrice.toFixed(2)}</td>
+                    <td data-col="totalCost">$${stock.totalCost.toFixed(2)}</td>
+                    <td data-col="currentValue">$${stock.currentValue.toFixed(2)}</td>
+                    <td data-col="profitDollar" class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
+                    <td data-col="profitPercent" class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
+                    <td data-col="risk" style="font-weight:bold; color: ${riskColor};">${riskLabel}</td>
+                    <td data-col="distanceHigh" style="font-weight:bold; color: ${distanceColor};" dir="rtl">${distanceText}</td>
+                    <td data-col="action"><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
+                    <td data-col="news">
                         <div class="news-links">
                             <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo"><i class="fa-solid fa-newspaper"></i> Yahoo</a>
                             <a href="${investingUrl}" target="_blank" class="news-btn news-investing"><i class="fa-solid fa-chart-line"></i> Investing</a>
@@ -697,6 +957,8 @@
             });
 
             updateChart();
+            updateForecastStockList();
+            applyColumnVisibility();
         }
 
         function updateChart() {
