@@ -15,7 +15,6 @@
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Heebo', sans-serif; }
-        html, body { overflow-x: hidden; width: 100%; }
         body {
             background-color: #0d1117; color: #f0f6fc; min-height: 100vh; display: flex;
             flex-direction: column; align-items: center; padding: 20px;
@@ -29,7 +28,7 @@
             border-radius: 15px; padding: 10px 25px; margin-bottom: 25px; backdrop-filter: blur(10px);
         }
 
-        .nav-tabs { display: flex; gap: 15px; flex-wrap: wrap; }
+        .nav-tabs { display: flex; gap: 15px; }
         .tab-btn {
             background: transparent; border: none; color: #8b949e; font-size: 1.05rem;
             font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer;
@@ -46,7 +45,7 @@
         }
         .btn-logout:hover { background: #da3633; color: white; }
 
-        header { text-align: center; margin-bottom: 30px; width: 100%; }
+        header { text-align: center; margin-bottom: 30px; }
         header h1 {
             font-size: 4.5rem; font-weight: 900;
             background: linear-gradient(45deg, #ffc107, #ff6b6b);
@@ -60,7 +59,7 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin-bottom: 30px;
         }
 
-        .tab-content { display: none; width: 100%; max-width: 1300px; }
+        .tab-content { display: none; }
         .tab-content.active { display: block; }
         .box-title { text-align: center; color: #f0f6fc; font-size: 1.4rem; margin-bottom: 20px; font-weight: 700; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -108,50 +107,11 @@
         }
         .chart-wrapper { position: relative; height: 320px; width: 100%; }
 
-        @media (max-width: 768px) {
-            body { padding: 10px; }
-            header h1 { font-size: 2.3rem; }
-            header p { font-size: 1rem; }
-            .container { padding: 18px; margin-bottom: 20px; }
-            
-            .navbar { flex-direction: column; gap: 12px; padding: 12px; }
-            .nav-tabs { justify-content: center; width: 100%; }
-            .tab-btn { font-size: 0.9rem; padding: 6px 10px; }
-
+        @media (max-width: 800px) {
             .form-grid { grid-template-columns: 1fr; }
             .input-group.full-width, .btn-add { grid-column: span 1; }
-
-            .table-container { background: transparent; border: none; box-shadow: none; }
-            #portfolioTable, #portfolioTable thead, #portfolioTable tbody, #portfolioTable th, #portfolioTable td, #portfolioTable tr { 
-                display: block; 
-            }
-            #portfolioTable thead tr { display: none; }
-            #portfolioTable tbody tr {
-                background: rgba(22, 27, 34, 0.95);
-                border: 1px solid #30363d;
-                border-radius: 15px;
-                margin-bottom: 15px;
-                padding: 12px 16px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            }
-            #portfolioTable td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 0;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                white-space: normal;
-                text-align: left;
-                font-size: 0.95rem;
-            }
-            #portfolioTable td:last-child { border-bottom: none; }
-            #portfolioTable td::before {
-                content: attr(data-label);
-                font-weight: bold;
-                color: #8b949e;
-                font-size: 0.88rem;
-                text-align: right;
-            }
+            header h1 { font-size: 3rem; }
+            .navbar { flex-direction: column; gap: 15px; }
         }
     </style>
 </head>
@@ -161,11 +121,11 @@
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('portfolio')"><i class="fa-solid fa-chart-pie"></i> התיק שלי</button>
             <button class="tab-btn" onclick="switchTab('login')" id="loginTabBtn"><i class="fa-solid fa-user-lock"></i> התחבר / הרשמה</button>
-            <button class="tab-btn admin-tab-btn" onclick="switchTab('admin')" id="adminTabBtn"><i class="fa-solid fa-user-gear"></i> ניהול משתמשים</button>
+            <button class="tab-btn admin-tab-btn" onclick="switchTab('admin')" id="adminTabBtn"><i class="fa-solid fa-user-gear"></i> ניהול משתמשים (אישורים)</button>
         </div>
 
         <div class="user-status" id="userStatus">
-            <span class="user-badge"><i class="fa-solid fa-user-check"></i> <strong id="currentUsername">אורח (לא מחובר)</strong></span>
+            <span class="user-badge"><i class="fa-solid fa-user-check"></i> סטטוס: <strong id="currentUsername">אורח (לא מחובר)</strong></span>
             <button class="btn-logout" id="logoutBtn" onclick="logout()" style="display:none;"><i class="fa-solid fa-right-from-bracket"></i> התנתק</button>
         </div>
     </nav>
@@ -177,7 +137,7 @@
 
     <!-- בלוק התיק -->
     <div id="portfolioTab" class="tab-content active">
-        <div class="container" style="margin: 0 auto 30px auto;">
+        <div class="container">
             <h3 class="box-title">הוסף מניות ובנה את טבלת המעקב המנצחת שלך.</h3>
             <div class="form-grid">
                 <div class="input-group">
@@ -225,7 +185,7 @@
 
     <!-- בלוק התחברות / הרשמה -->
     <div id="loginTab" class="tab-content">
-        <div class="container" style="margin: 0 auto 30px auto;">
+        <div class="container">
             <h3 class="box-title"><i class="fa-solid fa-user-shield"></i> התחברות / הרשמה למערכת</h3>
             
             <div class="input-group">
@@ -241,12 +201,18 @@
                 <button class="btn-action" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> התחבר</button>
                 <button class="btn-action" style="background: #388bfd;" onclick="register()"><i class="fa-solid fa-user-plus"></i> בקש הרשמה</button>
             </div>
+
+            <div style="margin-top: 12px; text-align: center;">
+                <a href="#" onclick="forgotPassword(); return false;" style="color: #8b949e; font-size: 0.9em; text-decoration: underline;">
+                    שכחתי סיסמה
+                </a>
+            </div>
         </div>
     </div>
 
-    <!-- בלוק ניהול משתמשים -->
+    <!-- בלוק ניהול משתמשים (עבור המנהל בלבד) -->
     <div id="adminTab" class="tab-content">
-        <div class="container" style="max-width: 1000px; margin: 0 auto 30px auto;">
+        <div class="container" style="max-width: 1000px;">
             <h3 class="box-title"><i class="fa-solid fa-user-check"></i> אישור משתמשים חדשים</h3>
             <div class="table-container" dir="rtl">
                 <table>
@@ -264,6 +230,7 @@
     </div>
 
     <script>
+        // המפתחות שלך שנוצרו ב-Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyASJW8HIsfQ-S7CbAuxgaFbSj0CutgN8ZY",
             authDomain: "portfolio-clash-3e70d.firebaseapp.com",
@@ -274,13 +241,12 @@
             measurementId: "G-B23YYE9YQZ"
         };
 
+        // אימייל המנהל הראשי של המערכת
         const ADMIN_EMAIL = "shlomi19871@gmail.com";
+
         const API_KEY = "d9p11a9r01qh40a7cb4gd9p11a9r01qh40a7cb50";
 
-        // פרטי הטלגרם המעודכנים
-        const TELEGRAM_BOT_TOKEN = "8998605803:AAHqbwTVeHBM1E8d2FpPIblLS-YeIL_m4PQ";
-        const TELEGRAM_CHAT_ID = "1174515533";
-
+        // אתחול Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
@@ -289,14 +255,17 @@
         let myChart = null;
         let currentUser = null;
 
+        // האזנה לשינוי מצב משתמש
         auth.onAuthStateChanged(async (user) => {
             if (user) {
+                // בדיקת סטטוס אישור המשתמש במסד הנתונים
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists && userDoc.data().approved) {
                     currentUser = user;
                     document.getElementById('currentUsername').innerText = user.email;
                     document.getElementById('logoutBtn').style.display = 'block';
 
+                    // בדיקה אם המשתמש הוא המנהל
                     if (user.email === ADMIN_EMAIL) {
                         document.getElementById('adminTabBtn').style.display = 'flex';
                     }
@@ -316,24 +285,7 @@
             }
         });
 
-        async function sendNotificationToAdmin(newUserEmail) {
-            const message = `🔔 *הרשמה חדשה ב-Portfolio Clash!* \n\n📧 *אימייל:* ${newUserEmail}\n⏳ ממתין לאישורך במערכת!`;
-            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-            try {
-                await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: TELEGRAM_CHAT_ID,
-                        text: message,
-                        parse_mode: 'Markdown'
-                    })
-                });
-            } catch (err) {
-                console.error("שגיאה בשליחת התראה לטלגרם:", err);
-            }
-        }
-
+        // הרשמת משתמש חדש בסטטוס "לא מאושר"
         async function register() {
             const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value.trim();
@@ -350,15 +302,15 @@
                 if (isAutoAdmin) {
                     alert("נרשמת כאיש ניהול! החשבון מאושר אוטומטית.");
                 } else {
-                    await sendNotificationToAdmin(email);
                     alert("בקשת ההרשמה נשלחה! החשבון יופעל רק לאחר אישור מנהל.");
                     auth.signOut();
                 }
             } catch (err) {
-                alert("שגיאה בהרשמה: " + err.message);
+                alert("שגיאה בהרשמה: " + translateAuthError(err));
             }
         }
 
+        // התחברות
         async function login() {
             const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value.trim();
@@ -368,14 +320,44 @@
                 await auth.signInWithEmailAndPassword(email, password);
                 switchTab('portfolio');
             } catch (err) {
-                alert("שגיאה בהתחברות: " + err.message);
+                alert("שגיאה בהתחברות: " + translateAuthError(err));
             }
+        }
+
+        // איפוס סיסמה
+        async function forgotPassword() {
+            const email = document.getElementById('authEmail').value.trim();
+            if (!email) {
+                return alert("קודם הזן את כתובת האימייל שלך בשדה למעלה, ואז לחץ שוב על 'שכחתי סיסמה'.");
+            }
+            try {
+                await auth.sendPasswordResetEmail(email);
+                alert("נשלח מייל איפוס סיסמה אל " + email + ". בדוק גם בתיקיית ספאם.");
+            } catch (err) {
+                alert("שגיאה בשליחת מייל איפוס: " + translateAuthError(err));
+            }
+        }
+
+        // תרגום שגיאות Firebase Auth הנפוצות לעברית ברורה
+        function translateAuthError(err) {
+            const map = {
+                'auth/wrong-password': 'הסיסמה שגויה.',
+                'auth/user-not-found': 'לא נמצא משתמש עם האימייל הזה.',
+                'auth/invalid-credential': 'אימייל או סיסמה שגויים.',
+                'auth/invalid-email': 'כתובת האימייל אינה תקינה.',
+                'auth/too-many-requests': 'יותר מדי ניסיונות כושלים. נסה שוב בעוד כמה דקות, או אפס סיסמה.',
+                'auth/email-already-in-use': 'כתובת האימייל הזו כבר רשומה במערכת.',
+                'auth/weak-password': 'הסיסמה חלשה מדי (נדרשים לפחות 6 תווים).',
+                'auth/network-request-failed': 'בעיית רשת. בדוק את החיבור לאינטרנט ונסה שוב.'
+            };
+            return map[err.code] || err.message;
         }
 
         function logout() {
             auth.signOut();
         }
 
+        // טעינת תיק מניות מהענן
         async function loadCloudPortfolio() {
             if (!currentUser) return;
             const doc = await db.collection('portfolios').doc(currentUser.uid).get();
@@ -387,6 +369,7 @@
             renderTable();
         }
 
+        // שמירת תיק מניות בענן
         async function saveCloudPortfolio() {
             if (!currentUser) return;
             await db.collection('portfolios').doc(currentUser.uid).set({
@@ -394,6 +377,7 @@
             });
         }
 
+        // טעינת רשימת משתמשים לפאנל הניהול
         async function loadAdminUsers() {
             const tbody = document.getElementById('adminUsersBody');
             tbody.innerHTML = '';
@@ -522,17 +506,17 @@
                 const investingUrl = `https://www.investing.com/search/?q=${stock.symbol}`;
 
                 tr.innerHTML = `
-                    <td data-label="Symbol" style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
-                    <td data-label="שם המניה" dir="rtl">${stock.name}</td>
-                    <td data-label="כמות">${stock.shares}</td>
-                    <td data-label="שער כניסה">$${stock.buyPrice.toFixed(2)}</td>
-                    <td data-label="שער נוכחי" style="font-weight:bold; color: #ffc107;">$${stock.currentPrice.toFixed(2)}</td>
-                    <td data-label="עלות כוללת">$${stock.totalCost.toFixed(2)}</td>
-                    <td data-label="שווי נוכחי">$${stock.currentValue.toFixed(2)}</td>
-                    <td data-label="רווח / הפסד ($)" class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
-                    <td data-label="אחוזים (%)" class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
-                    <td data-label="פעולה"><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
-                    <td data-label="חדשות">
+                    <td style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
+                    <td dir="rtl">${stock.name}</td>
+                    <td>${stock.shares}</td>
+                    <td>$${stock.buyPrice.toFixed(2)}</td>
+                    <td style="font-weight:bold; color: #ffc107;">$${stock.currentPrice.toFixed(2)}</td>
+                    <td>$${stock.totalCost.toFixed(2)}</td>
+                    <td>$${stock.currentValue.toFixed(2)}</td>
+                    <td class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
+                    <td class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
+                    <td><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
+                    <td>
                         <div class="news-links">
                             <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo"><i class="fa-solid fa-newspaper"></i> Yahoo</a>
                             <a href="${investingUrl}" target="_blank" class="news-btn news-investing"><i class="fa-solid fa-chart-line"></i> Investing</a>
