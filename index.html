@@ -15,6 +15,7 @@
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Heebo', sans-serif; }
+        html, body { overflow-x: hidden; max-width: 100%; }
         body {
             background-color: #0d1117; color: #f0f6fc; min-height: 100vh; display: flex;
             flex-direction: column; align-items: center; padding: 20px;
@@ -212,32 +213,47 @@
             .navbar { flex-direction: column; gap: 12px; padding: 12px 15px; }
             .nav-tabs { flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
             .tab-btn { font-size: 0.85rem; padding: 8px 10px; }
-            .user-status { flex-wrap: wrap; justify-content: center; text-align: center; }
-            .container, .table-container, .chart-box, .forecast-box, .pricing-box { padding: 15px; border-radius: 14px; }
+            .user-status { flex-wrap: wrap; justify-content: center; text-align: center; word-break: break-word; }
+            .container, .table-container, .chart-box, .forecast-box, .pricing-box, .modal-box { padding: 15px; border-radius: 14px; }
             .auth-row { flex-direction: column; align-items: center; }
-            .auth-row .container, .pricing-box { max-width: 100%; }
+            .auth-row .container, .pricing-box { max-width: 100%; width: 100%; }
             .pricing-box .price-tag { font-size: 2rem; }
-            .site-footer { margin-top: 25px; }
+            .pricing-box .payment-methods { justify-content: center; }
+            .site-footer { margin-top: 25px; padding: 0 10px; }
+            .table-container { -webkit-overflow-scrolling: touch; }
             th, td { padding: 10px 8px; font-size: 0.85rem; }
             .box-title { font-size: 1.15rem; }
-            .modal-box { padding: 20px; max-width: 100%; }
+            .modal-overlay { padding: 12px; }
+            .modal-box { max-width: 100%; width: 100%; }
             .stats-row { flex-direction: column; }
+            .stat-box { min-width: 100%; }
             .bottom-row { flex-direction: column; align-items: center; }
-            .chart-box, .forecast-box { max-width: 100%; }
+            .chart-box, .forecast-box { max-width: 100%; width: 100%; }
+            .forecast-tab-btn { font-size: 0.8rem; padding: 10px 6px; }
+            .table-options-bar { justify-content: center; }
+            .btn-table-options { font-size: 0.85rem; padding: 9px 14px; }
+            .column-checkbox-row { padding: 10px 12px; }
+            .message-item { padding: 12px; }
+            .message-item .message-meta { flex-direction: column; gap: 4px; }
         }
 
         @media (max-width: 480px) {
             body { padding: 10px; }
-            header h1 { font-size: 2rem; }
-            header .subtitle-hebrew { font-size: 1.1rem; }
-            header p { font-size: 0.95rem; }
+            header h1 { font-size: 1.9rem; }
+            header .subtitle-hebrew { font-size: 1.05rem; }
+            header p { font-size: 0.9rem; }
             .navbar { border-radius: 12px; }
-            .tab-btn { font-size: 0.78rem; padding: 7px 8px; gap: 5px; }
-            .box-title { font-size: 1rem; }
-            input, select { padding: 10px 12px; font-size: 0.95rem; }
-            .btn-add, .btn-action { font-size: 1rem; padding: 12px; }
-            th, td { padding: 8px 6px; font-size: 0.78rem; }
-            .stat-value { font-size: 1.7rem; }
+            .tab-btn { font-size: 0.75rem; padding: 7px 8px; gap: 4px; }
+            .box-title { font-size: 0.98rem; }
+            input, select, textarea { padding: 10px 12px; font-size: 0.95rem; }
+            .btn-add, .btn-action { font-size: 0.95rem; padding: 12px; }
+            th, td { padding: 8px 6px; font-size: 0.75rem; }
+            .stat-value { font-size: 1.6rem; }
+            .stat-label { font-size: 0.85rem; }
+            .price-tag { font-size: 1.8rem !important; }
+            .payment-badge { font-size: 0.8rem; padding: 6px 12px; }
+            .btn-table-options { width: 100%; justify-content: center; }
+            .table-options-bar { flex-direction: column; }
         }
     </style>
 </head>
@@ -381,7 +397,7 @@
         </div>
 
         <div class="pricing-box">
-            <h3 class="box-title"><i class="fa-solid fa-crown"></i> מנוי לתיק ההתנגשות</h3>
+            <h3 class="box-title"><i class="fa-solid fa-crown"></i> מנוי להתנגשות התיקים</h3>
             <div class="price-tag">24.99 ₪</div>
             <div class="price-sub">לחודש בלבד</div>
             <div style="color:#c9d1d9; font-size:1.05rem; font-weight:700; margin-bottom: 20px;">או 249.99 ₪ לשנה</div>
@@ -477,11 +493,11 @@
             <button class="modal-close" onclick="closeContactModal()"><i class="fa-solid fa-xmark"></i></button>
             <h3 class="box-title" id="contactModalTitle"><i class="fa-solid fa-paper-plane"></i> שליחת הודעה למנהל</h3>
             <div class="input-group">
-                <label for="contactPhone">מספר פלאפון</label>
+                <label for="contactPhone">מספר טלפון</label>
                 <input type="tel" id="contactPhone" placeholder="050-1234567">
             </div>
             <div class="input-group">
-                <label for="contactEmail">האימייל שלי</label>
+                <label for="contactEmail">האימייל</label>
                 <input type="email" id="contactEmail" placeholder="you@example.com">
             </div>
             <div class="input-group">
@@ -516,6 +532,25 @@
         const ADMIN_EMAIL = "shlomi19871@gmail.com";
 
         const API_KEY = "d9p11a9r01qh40a7cb4gd9p11a9r01qh40a7cb50";
+
+        // הגדרות התראת טלגרם
+        const TELEGRAM_BOT_TOKEN = "8849164524:AAHcglDzft_UIQDCY3hmgBpEHm2-4Oz6BdU";
+        const TELEGRAM_CHAT_ID = "1174515533";
+
+        async function sendTelegramNotification(text, phone, email, context) {
+            if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('הכנס_כאן')) return;
+            const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה' : '📩 הודעה חדשה מהאתר';
+            const message = `${contextLabel}\n\n📞 טלפון: ${phone}\n✉️ אימייל: ${email}\n\n${text}`;
+            try {
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message })
+                });
+            } catch (e) {
+                console.error('שגיאה בשליחת התראת טלגרם:', e);
+            }
+        }
 
         // אתחול Firebase
         firebase.initializeApp(firebaseConfig);
@@ -738,7 +773,7 @@
             const text = document.getElementById('contactMessage').value.trim();
 
             if (!phone || !email) {
-                return alert('יש למלא מספר פלאפון ואימייל לפני שליחת ההודעה.');
+                return alert('יש למלא מספר טלפון ואימייל לפני שליחת ההודעה.');
             }
             if (!text) return alert('אנא כתוב הודעה לפני השליחה.');
 
@@ -756,6 +791,7 @@
                     read: false,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                sendTelegramNotification(text, phone, email, contactContext);
                 alert('ההודעה נשלחה בהצלחה! המנהל יחזור אליך בהקדם.');
                 closeContactModal();
             } catch (err) {
