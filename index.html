@@ -156,7 +156,7 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin: 0 auto 30px auto;
         }
 
-        .tab-content { display: none; }
+        .tab-content { display: none; width: 100%; max-width: 1300px; min-width: 0; }
         .tab-content.active { display: block; }
         .box-title { text-align: center; color: #f0f6fc; font-size: 1.4rem; margin-bottom: 20px; font-weight: 700; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -204,6 +204,11 @@
         }
         .chart-wrapper { position: relative; height: 320px; width: 100%; }
 
+        /* התאמות מסך: שמירת התוכן בתוך רוחב המסך, בלי לשנות את תצוגת המחשב */
+        input, select, textarea { max-width: 100%; }
+        .modal-overlay { overflow-y: auto; }
+        .modal-box { max-height: calc(100vh - 40px); overflow-y: auto; }
+
         @media (max-width: 800px) {
             .form-grid { grid-template-columns: 1fr; }
             .input-group.full-width, .btn-add { grid-column: span 1; }
@@ -224,7 +229,7 @@
             th, td { padding: 10px 8px; font-size: 0.85rem; }
             .box-title { font-size: 1.15rem; }
             .modal-overlay { padding: 12px; }
-            .modal-box { max-width: 100%; width: 100%; }
+            .modal-box { max-width: 100%; width: 100%; max-height: calc(100vh - 24px); }
             .stats-row { flex-direction: column; }
             .stat-box { min-width: 100%; }
             .bottom-row { flex-direction: column; align-items: center; }
@@ -254,6 +259,7 @@
             .payment-badge { font-size: 0.8rem; padding: 6px 12px; }
             .btn-table-options { width: 100%; justify-content: center; }
             .table-options-bar { flex-direction: column; }
+            .auth-actions { flex-direction: column; }
         }
     </style>
 </head>
@@ -384,7 +390,7 @@
                 <input type="password" id="authPassword" placeholder="******">
             </div>
 
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <div class="auth-actions" style="display: flex; gap: 10px; margin-top: 15px;">
                 <button class="btn-action" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> התחבר</button>
                 <button class="btn-action" style="background: #388bfd;" onclick="register()"><i class="fa-solid fa-user-plus"></i> בקש הרשמה</button>
             </div>
