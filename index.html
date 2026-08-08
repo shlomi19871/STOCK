@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Clash - התנגשות התיקים</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Heebo', sans-serif; }
+        html, body { overflow-x: hidden; max-width: 100%; }
+        body {
+            background-color: #0d1117; color: #f0f6fc; min-height: 100vh; display: flex;
+            flex-direction: column; align-items: center; padding: 20px;
+            background-image: linear-gradient(rgba(13, 17, 23, 0.85), rgba(13, 17, 23, 0.95)), url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1920&q=80');
+            background-size: cover; background-position: center; background-attachment: fixed;
+        }
+
+        .navbar {
+            width: 100%; max-width: 1300px; display: flex; justify-content: space-between;
+            align-items: center; background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
+            border-radius: 15px; padding: 10px 25px; margin-bottom: 25px; backdrop-filter: blur(10px);
+        }
+
+        .nav-tabs { display: flex; gap: 15px; }
+        .tab-btn {
+            background: transparent; border: none; color: #8b949e; font-size: 1.05rem;
+            font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 8px;
+        }
+        .tab-btn:hover, .tab-btn.active { color: #ffc107; background: rgba(255, 193, 7, 0.1); }
+        .admin-tab-btn { color: #ff5555; display: none; }
+
+        .user-status { display: flex; align-items: center; gap: 12px; font-size: 0.95rem; }
+        .user-badge { color: #00ff87; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+        .btn-logout {
+            background: rgba(218, 54, 51, 0.2); color: #ff5555; border: 1px solid rgba(218, 54, 51, 0.4);
+            padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease;
+        }
+        .btn-logout:hover { background: #da3633; color: white; }
+
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 {
+            font-size: 4.5rem; font-weight: 900;
+            background: linear-gradient(45deg, #ffc107, #ff6b6b);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px;
+        }
+        header .subtitle-hebrew {
+            font-size: 1.8rem; font-weight: 900;
+            background: linear-gradient(45deg, #ffc107, #ff6b6b);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 15px;
+        }
+        header p { font-size: 1.3rem; color: #c9d1d9; max-width: 650px; margin: 0 auto; line-height: 1.5; }
+
+        /* ריבועי סטטיסטיקה בלשונית ניהול */
+        .stats-row { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; }
+        .stat-box {
+            flex: 1; min-width: 200px; background: rgba(13, 17, 23, 0.6); border: 1px solid #30363d;
+            border-radius: 15px; padding: 20px; text-align: center;
+        }
+        .stat-value { font-size: 2.2rem; font-weight: 900; color: #ffc107; }
+        .stat-label { color: #8b949e; font-size: 0.95rem; margin-top: 6px; }
+
+        /* מודאל מחשבון תשואה */
+        select {
+            background-color: #0d1117; border: 1px solid #30363d; border-radius: 10px;
+            padding: 12px 15px; color: #fff; font-size: 1rem;
+        }
+        select:focus { outline: none; border-color: #ffc107; }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); z-index: 999; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-box {
+            background: #161b22; border: 1px solid #30363d; border-radius: 20px; padding: 30px;
+            width: 100%; max-width: 420px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+        .modal-close {
+            position: absolute; top: 15px; left: 15px; background: transparent; border: none;
+            color: #8b949e; font-size: 1.3rem; cursor: pointer;
+        }
+        .modal-close:hover { color: #ff5555; }
+
+        /* כפתור אפשרויות תצוגת טבלה */
+        .table-options-bar { width: 100%; max-width: 1300px; display: flex; justify-content: flex-start; margin-bottom: 15px; }
+        .btn-table-options {
+            background: rgba(56, 139, 253, 0.15); color: #79c0ff; border: 1px solid rgba(56, 139, 253, 0.4);
+            padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: 0.95rem; font-weight: 700;
+            display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
+        }
+        .btn-table-options:hover { background: rgba(56, 139, 253, 0.3); }
+        .column-checkbox-list { display: flex; flex-direction: column; gap: 12px; max-height: 50vh; overflow-y: auto; margin-bottom: 10px; }
+        .column-checkbox-row {
+            display: flex; align-items: center; justify-content: space-between; background: rgba(13,17,23,0.5);
+            border: 1px solid #30363d; border-radius: 10px; padding: 10px 15px;
+        }
+        .column-checkbox-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ffc107; cursor: pointer; }
+
+        /* שורה תחתונה: עוגה + תחזית */
+        .bottom-row { display: flex; gap: 25px; justify-content: center; align-items: flex-start; flex-wrap: wrap; width: 100%; max-width: 1300px; margin: 0 auto; }
+        .chart-box, .forecast-box { max-width: 560px; flex: 1 1 400px; margin: 0; }
+        .forecast-box {
+            display: none; background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(10px); border: 1px solid #30363d;
+            border-radius: 20px; padding: 25px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .forecast-tab-btn {
+            flex: 1; background: rgba(13,17,23,0.6); border: 1px solid #30363d; color: #8b949e;
+            padding: 10px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.9rem; transition: all 0.2s ease;
+        }
+        .forecast-tab-btn.active { color: #ffc107; border-color: #ffc107; background: rgba(255, 193, 7, 0.1); }
+
+        /* שורת התחברות + מנוי */
+        .auth-row { display: flex; gap: 25px; justify-content: center; align-items: stretch; flex-wrap: wrap; width: 100%; max-width: 1300px; margin: 0 auto; }
+        .auth-row .container { max-width: 450px; flex: 1 1 380px; margin: 0; }
+        .pricing-box {
+            background: linear-gradient(160deg, rgba(255, 193, 7, 0.12), rgba(22, 27, 34, 0.9)); backdrop-filter: blur(10px);
+            border: 1px solid #d69e2e; border-radius: 20px; padding: 30px; max-width: 420px; flex: 1 1 340px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); text-align: center;
+        }
+        .pricing-box .price-tag { font-size: 2.6rem; font-weight: 900; color: #ffc107; margin: 15px 0 5px; }
+        .pricing-box .price-sub { color: #8b949e; font-size: 0.95rem; margin-bottom: 20px; }
+        .pricing-box .payment-methods { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .payment-badge {
+            background: rgba(13,17,23,0.6); border: 1px solid #30363d; border-radius: 8px; padding: 8px 16px;
+            font-weight: 700; color: #f0f6fc; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;
+        }
+
+        /* פוטר */
+        .site-footer { width: 100%; max-width: 1300px; margin: 40px auto 20px; text-align: center; }
+        .footer-divider { border: none; border-top: 1px solid #30363d; margin-bottom: 20px; width: 100%; }
+        .site-footer p { color: #8b949e; font-size: 0.95rem; margin-bottom: 12px; }
+        .btn-contact {
+            background: rgba(255, 193, 7, 0.15); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.4);
+            padding: 10px 24px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.95rem; transition: all 0.2s ease;
+        }
+        .btn-contact:hover { background: rgba(255, 193, 7, 0.3); }
+
+        /* תיבת הודעות בניהול */
+        .message-item {
+            background: rgba(13,17,23,0.6); border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 12px; text-align: right;
+        }
+        .message-item .message-meta { display: flex; justify-content: space-between; color: #8b949e; font-size: 0.8rem; margin-bottom: 8px; }
+        .message-item .message-text { color: #f0f6fc; line-height: 1.5; white-space: pre-wrap; }
+        .message-item.unread { border-color: #ffc107; }
+
+        .container {
+            background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(10px); border: 1px solid #30363d;
+            border-radius: 20px; padding: 30px; width: 100%; max-width: 800px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin: 0 auto 30px auto;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .box-title { text-align: center; color: #f0f6fc; font-size: 1.4rem; margin-bottom: 20px; font-weight: 700; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .input-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        .input-group.full-width { grid-column: span 2; }
+        label { font-size: 0.95rem; color: #8b949e; margin-bottom: 8px; font-weight: 500; }
+        input {
+            background-color: #0d1117; border: 1px solid #30363d; border-radius: 10px;
+            padding: 12px 15px; color: #fff; font-size: 1rem; transition: all 0.3s ease;
+        }
+        input:focus { outline: none; border-color: #ffc107; box-shadow: 0 0 10px rgba(255, 193, 7, 0.2); }
+
+        .btn-add, .btn-action {
+            background: linear-gradient(135deg, #238636, #2ea043); color: white; border: none;
+            padding: 14px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s; display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%;
+        }
+        .btn-add { grid-column: span 2; margin-top: 10px; }
+        .btn-approve { background: #238636; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+
+        .table-container {
+            width: 100%; max-width: 1300px; background: rgba(22, 27, 34, 0.9);
+            border-radius: 15px; border: 1px solid #30363d; overflow-x: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: center; }
+        th, td { padding: 15px 10px; border-bottom: 1px solid #30363d; white-space: nowrap; }
+        th { background-color: rgba(13, 17, 23, 0.8); color: #f0f6fc; font-weight: bold; font-size: 1rem; }
+        .th-sub { display: block; color: #8b949e; font-size: 0.85rem; font-weight: normal; margin-top: 3px; }
+        tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+
+        .profit-pos { color: #00ff87 !important; font-weight: bold; }
+        .profit-neg { color: #ff5555 !important; font-weight: bold; }
+        .btn-delete { background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; }
+
+        .news-links { display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .news-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+        .news-yahoo { background: rgba(114, 15, 255, 0.15); color: #a371f7; border: 1px solid rgba(114, 15, 255, 0.4); }
+        .news-investing { background: rgba(255, 122, 0, 0.15); color: #ff8c00; border: 1px solid rgba(255, 122, 0, 0.4); }
+
+        .chart-box {
+            display: none; width: 100%; background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(10px); border: 1px solid #30363d; border-radius: 20px; padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); margin: 0; text-align: center;
+        }
+        .chart-wrapper { position: relative; height: 320px; width: 100%; }
+
+        @media (max-width: 800px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .input-group.full-width, .btn-add { grid-column: span 1; }
+            header h1 { font-size: 2.6rem; }
+            header .subtitle-hebrew { font-size: 1.3rem; }
+            header p { font-size: 1.05rem; padding: 0 10px; }
+            .navbar { flex-direction: column; gap: 12px; padding: 12px 15px; }
+            .nav-tabs { flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+            .tab-btn { font-size: 0.85rem; padding: 8px 10px; }
+            .user-status { flex-wrap: wrap; justify-content: center; text-align: center; word-break: break-word; }
+            .container, .table-container, .chart-box, .forecast-box, .pricing-box, .modal-box { padding: 15px; border-radius: 14px; }
+            .auth-row { flex-direction: column; align-items: center; }
+            .auth-row .container, .pricing-box { max-width: 100%; width: 100%; }
+            .pricing-box .price-tag { font-size: 2rem; }
+            .pricing-box .payment-methods { justify-content: center; }
+            .site-footer { margin-top: 25px; padding: 0 10px; }
+            .table-container { -webkit-overflow-scrolling: touch; }
+            th, td { padding: 10px 8px; font-size: 0.85rem; }
+            .box-title { font-size: 1.15rem; }
+            .modal-overlay { padding: 12px; }
+            .modal-box { max-width: 100%; width: 100%; }
+            .stats-row { flex-direction: column; }
+            .stat-box { min-width: 100%; }
+            .bottom-row { flex-direction: column; align-items: center; }
+            .chart-box, .forecast-box { max-width: 100%; width: 100%; }
+            .forecast-tab-btn { font-size: 0.8rem; padding: 10px 6px; }
+            .table-options-bar { justify-content: center; }
+            .btn-table-options { font-size: 0.85rem; padding: 9px 14px; }
+            .column-checkbox-row { padding: 10px 12px; }
+            .message-item { padding: 12px; }
+            .message-item .message-meta { flex-direction: column; gap: 4px; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            header h1 { font-size: 1.9rem; }
+            header .subtitle-hebrew { font-size: 1.05rem; }
+            header p { font-size: 0.9rem; }
+            .navbar { border-radius: 12px; }
+            .tab-btn { font-size: 0.75rem; padding: 7px 8px; gap: 4px; }
+            .box-title { font-size: 0.98rem; }
+            input, select, textarea { padding: 10px 12px; font-size: 0.95rem; }
+            .btn-add, .btn-action { font-size: 0.95rem; padding: 12px; }
+            th, td { padding: 8px 6px; font-size: 0.75rem; }
+            .stat-value { font-size: 1.6rem; }
+            .stat-label { font-size: 0.85rem; }
+            .price-tag { font-size: 1.8rem !important; }
+            .payment-badge { font-size: 0.8rem; padding: 6px 12px; }
+            .btn-table-options { width: 100%; justify-content: center; }
+            .table-options-bar { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('portfolio')"><i class="fa-solid fa-chart-pie"></i> התיק שלי</button>
+            <button class="tab-btn" onclick="switchTab('login')" id="loginTabBtn"><i class="fa-solid fa-user-lock"></i> התחבר / הרשמה</button>
+            <button class="tab-btn admin-tab-btn" onclick="switchTab('admin')" id="adminTabBtn"><i class="fa-solid fa-user-gear"></i> ניהול משתמשים (אישורים)</button>
+            <button class="tab-btn" onclick="openCalculator()"><i class="fa-solid fa-calculator"></i> מחשבון תשואה</button>
+        </div>
+
+        <div class="user-status" id="userStatus">
+            <span class="user-badge"><i class="fa-solid fa-user-check"></i> סטטוס: <strong id="currentUsername">אורח (לא מחובר)</strong></span>
+            <button class="btn-logout" id="logoutBtn" onclick="logout()" style="display:none;"><i class="fa-solid fa-right-from-bracket"></i> התנתק</button>
+        </div>
+    </nav>
+
+    <header>
+        <h1>Portfolio Clash</h1>
+        <div class="subtitle-hebrew">התנגשות התיקים</div>
+        <p>ברוכים הבאים למעקב אחרי התיק שלכם<br>כאן תדעו בדיוק מה קורה עם המניות שלכם.</p>
+    </header>
+
+    <!-- בלוק התיק -->
+    <div id="portfolioTab" class="tab-content active">
+        <div class="container">
+            <h3 class="box-title">הוסף מניות ובנה את טבלת המעקב המנצחת שלך.</h3>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label for="symbol">סימבול (למשל: SOFI, AAPL)</label>
+                    <input type="text" id="symbol" placeholder="הקלד סימבול...">
+                </div>
+                <div class="input-group">
+                    <label for="shares">כמות יחידות</label>
+                    <input type="number" id="shares" placeholder="כמה קנית?">
+                </div>
+                <div class="input-group full-width">
+                    <label for="buyPrice">מחיר קניה ליחידה ($)</label>
+                    <input type="number" step="0.01" id="buyPrice" placeholder="באיזה שער נכנסת?">
+                </div>
+                <button class="btn-add" id="addBtn" onclick="addStock()"><i class="fa-solid fa-plus"></i> הוסף מניה לתיק</button>
+            </div>
+        </div>
+
+        <div class="table-options-bar">
+            <button class="btn-table-options" onclick="openColumnOptions()"><i class="fa-solid fa-table-columns"></i> התאמת עמודות בטבלה</button>
+        </div>
+
+        <div class="table-container" dir="ltr">
+            <table id="portfolioTable">
+                <thead>
+                    <tr>
+                        <th data-col="symbol">Symbol<span class="th-sub" dir="rtl">סימבול</span></th>
+                        <th data-col="name" dir="rtl">Name<span class="th-sub">שם המניה</span></th>
+                        <th data-col="shares">Shares<span class="th-sub" dir="rtl">כמות</span></th>
+                        <th data-col="buyPrice">Buy Price<span class="th-sub" dir="rtl">שער כניסה</span></th>
+                        <th data-col="currentPrice" dir="rtl">Current Price<span class="th-sub">שער נוכחי בזמן אמת</span></th>
+                        <th data-col="totalCost">Total Cost<span class="th-sub" dir="rtl">עלות כוללת</span></th>
+                        <th data-col="currentValue">Current Val<span class="th-sub" dir="rtl">שווי נוכחי</span></th>
+                        <th data-col="profitDollar">Profit / Loss ($)<span class="th-sub" dir="rtl">רווח / הפסד</span></th>
+                        <th data-col="profitPercent">Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
+                        <th data-col="risk" dir="rtl">Risk<span class="th-sub">מדד סיכון</span></th>
+                        <th data-col="distanceHigh" dir="rtl">From High<span class="th-sub">מרחק משיא</span></th>
+                        <th data-col="action" dir="rtl">Action<span class="th-sub">פעולה</span></th>
+                        <th data-col="news" dir="rtl">News<span class="th-sub">חדשות</span></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="bottom-row">
+            <div class="chart-box">
+                <h3>חלוקת תיק ההשקעות (אחוזים לפי שווי)</h3>
+                <div class="chart-wrapper"><canvas id="portfolioChart"></canvas></div>
+            </div>
+
+            <div class="forecast-box" id="forecastBox">
+                <h3 class="box-title"><i class="fa-solid fa-wand-magic-sparkles"></i> תחזית תשואה עתידית</h3>
+                <div class="input-group">
+                    <label for="forecastStock">בחר מניה מהתיק</label>
+                    <select id="forecastStock" onchange="updateForecast()"></select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 18px;">
+                    <button class="forecast-tab-btn active" id="forecastTabProfit" onclick="switchForecastTab('profit')">רווח לפי יעד %</button>
+                    <button class="forecast-tab-btn" id="forecastTabStop" onclick="switchForecastTab('stop')">סטופ (הפסד)</button>
+                </div>
+
+                <div id="forecastProfitPanel">
+                    <div class="input-group">
+                        <label for="forecastPercent">יעד רווח באחוזים (מהמחיר הנוכחי)</label>
+                        <input type="number" id="forecastPercent" value="10" step="1" oninput="updateForecast()">
+                    </div>
+                    <div class="input-group">
+                        <label>רווח משוער בתרחיש זה</label>
+                        <input type="text" id="forecastProfitResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
+                    </div>
+                </div>
+
+                <div id="forecastStopPanel" style="display: none;">
+                    <div class="input-group">
+                        <label for="forecastStopPrice">מחיר סטופ (שער יציאה)</label>
+                        <input type="number" step="0.01" id="forecastStopPrice" oninput="updateForecast()" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>הפסד / רווח משוער בתרחיש זה</label>
+                        <input type="text" id="forecastStopResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- בלוק התחברות / הרשמה + מנוי -->
+    <div id="loginTab" class="tab-content">
+        <div class="auth-row">
+        <div class="container">
+            <h3 class="box-title"><i class="fa-solid fa-user-shield"></i> התחברות / הרשמה למערכת</h3>
+            
+            <div class="input-group">
+                <label for="authEmail">אימייל</label>
+                <input type="email" id="authEmail" placeholder="user@example.com">
+            </div>
+            <div class="input-group">
+                <label for="authPassword">סיסמה</label>
+                <input type="password" id="authPassword" placeholder="******">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-action" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> התחבר</button>
+                <button class="btn-action" style="background: #388bfd;" onclick="register()"><i class="fa-solid fa-user-plus"></i> בקש הרשמה</button>
+            </div>
+
+            <div style="margin-top: 12px; text-align: center;">
+                <a href="#" onclick="forgotPassword(); return false;" style="color: #8b949e; font-size: 0.9em; text-decoration: underline;">
+                    שכחתי סיסמה
+                </a>
+            </div>
+        </div>
+
+        <div class="pricing-box">
+            <h3 class="box-title"><i class="fa-solid fa-crown"></i> מנוי להתנגשות התיקים</h3>
+            <div class="price-tag">24.99 ₪</div>
+            <div class="price-sub">לחודש בלבד</div>
+            <div style="color:#c9d1d9; font-size:1.05rem; font-weight:700; margin-bottom: 20px;">או 249.99 ₪ לשנה</div>
+            <div class="payment-methods">
+                <div class="payment-badge"><i class="fa-solid fa-money-bill-transfer"></i> Bit</div>
+                <div class="payment-badge"><i class="fa-solid fa-money-bill-transfer"></i> PayBox</div>
+            </div>
+            <p style="color:#c9d1d9; font-size:0.9rem; margin-bottom: 20px; line-height: 1.6;">
+                לתשלום והפעלת המנוי, שילחו הודעה למנהל ותקבלו פרטי תשלום מלאים.
+            </p>
+            <button class="btn-action" style="background: linear-gradient(135deg, #ffc107, #d69e2e);" onclick="openContactModal('subscribe')">
+                <i class="fa-solid fa-hand-pointer"></i> לחצו עליי
+            </button>
+        </div>
+        </div>
+    </div>
+
+    <!-- בלוק ניהול משתמשים (עבור המנהל בלבד) -->
+    <div id="adminTab" class="tab-content">
+        <div class="container" style="max-width: 1000px;">
+            <h3 class="box-title"><i class="fa-solid fa-chart-column"></i> נתוני כניסה לאתר</h3>
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value" id="guestVisitsCount">—</div>
+                    <div class="stat-label"><i class="fa-solid fa-user-secret"></i> כניסות ללא התחברות</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="loggedVisitsCount">—</div>
+                    <div class="stat-label"><i class="fa-solid fa-user-check"></i> כניסות עם התחברות</div>
+                </div>
+            </div>
+
+            <h3 class="box-title"><i class="fa-solid fa-envelope"></i> תיבת הודעות <span id="unreadBadge" style="color:#ff5555;"></span></h3>
+            <div id="messagesList" style="max-height: 400px; overflow-y: auto; margin-bottom: 30px;"></div>
+
+            <h3 class="box-title"><i class="fa-solid fa-user-check"></i> אישור משתמשים חדשים</h3>
+            <div class="table-container" dir="rtl">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>אימייל משתמש</th>
+                            <th>סטטוס אישור</th>
+                            <th>פעולה</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminUsersBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- מודאל מחשבון תשואה -->
+    <div id="calcModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeCalculator()"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="box-title"><i class="fa-solid fa-calculator"></i> מחשבון תשואה</h3>
+
+            <div class="input-group">
+                <label for="calcAction">פעולה</label>
+                <select id="calcAction" onchange="calcProfit()">
+                    <option value="buy">קנייה</option>
+                    <option value="sell">מכירה</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="calcBuyPrice">שער קניה</label>
+                <input type="number" step="0.01" id="calcBuyPrice" oninput="calcProfit()" placeholder="0.00">
+            </div>
+            <div class="input-group">
+                <label for="calcSellPrice">שער מכירה</label>
+                <input type="number" step="0.01" id="calcSellPrice" oninput="calcProfit()" placeholder="0.00">
+            </div>
+            <div class="input-group">
+                <label for="calcResult">רווח / הפסד</label>
+                <input type="text" id="calcResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
+            </div>
+        </div>
+    </div>
+
+    <!-- מודאל התאמת עמודות בטבלה -->
+    <div id="columnModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeColumnOptions()"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="box-title"><i class="fa-solid fa-table-columns"></i> התאמת עמודות בטבלה</h3>
+            <div class="column-checkbox-list" id="columnCheckboxList"></div>
+            <button class="btn-action" style="background: #388bfd;" onclick="closeColumnOptions()">סגור</button>
+        </div>
+    </div>
+
+    <!-- מודאל יצירת קשר עם המנהל -->
+    <div id="contactModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeContactModal()"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="box-title" id="contactModalTitle"><i class="fa-solid fa-paper-plane"></i> שליחת הודעה למנהל</h3>
+            <div class="input-group">
+                <label for="contactPhone">מספר טלפון</label>
+                <input type="tel" id="contactPhone" placeholder="050-1234567">
+            </div>
+            <div class="input-group">
+                <label for="contactEmail">האימייל</label>
+                <input type="email" id="contactEmail" placeholder="you@example.com">
+            </div>
+            <div class="input-group">
+                <label for="contactMessage">ההודעה שלך</label>
+                <textarea id="contactMessage" rows="5" placeholder="כתבו כאן את ההודעה..."
+                    style="background-color: #0d1117; border: 1px solid #30363d; border-radius: 10px; padding: 12px 15px; color: #fff; font-size: 1rem; resize: vertical; font-family: 'Heebo', sans-serif;"></textarea>
+            </div>
+            <button class="btn-action" id="sendContactBtn" onclick="sendContactMessage()"><i class="fa-solid fa-paper-plane"></i> שלח הודעה</button>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <hr class="footer-divider">
+        <p>כל הזכויות שמורות ל-Bitton's Studio</p>
+        <p style="margin-bottom: 15px;">לבירורים או שאלות נוספות</p>
+        <button class="btn-contact" onclick="openContactModal('general')"><i class="fa-solid fa-hand-pointer"></i> לחצו עליי</button>
+    </footer>
+
+    <script>
+        // המפתחות שלך שנוצרו ב-Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyASJW8HIsfQ-S7CbAuxgaFbSj0CutgN8ZY",
+            authDomain: "portfolio-clash-3e70d.firebaseapp.com",
+            projectId: "portfolio-clash-3e70d",
+            storageBucket: "portfolio-clash-3e70d.firebasestorage.app",
+            messagingSenderId: "903714514589",
+            appId: "1:903714514589:web:860cc0a17296634f7ad674",
+            measurementId: "G-B23YYE9YQZ"
+        };
+
+        // אימייל המנהל הראשי של המערכת
+        const ADMIN_EMAIL = "shlomi19871@gmail.com";
+
+        const API_KEY = "d9p11a9r01qh40a7cb4gd9p11a9r01qh40a7cb50";
+
+        // הגדרות התראת טלגרם
+        const TELEGRAM_BOT_TOKEN = "8849164524:AAHcglDzft_UIQDCY3hmgBpEHm2-4Oz6BdU";
+        const TELEGRAM_CHAT_ID = "1174515533";
+
+        async function sendTelegramNotification(text, phone, email, context) {
+            if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('הכנס_כאן')) return;
+            const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה' : '📩 הודעה חדשה מהאתר';
+            const message = `${contextLabel}\n\n📞 טלפון: ${phone}\n✉️ אימייל: ${email}\n\n${text}`;
+            try {
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message })
+                });
+            } catch (e) {
+                console.error('שגיאה בשליחת התראת טלגרם:', e);
+            }
+        }
+
+        // אתחול Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let portfolio = [];
+        let myChart = null;
+        let currentUser = null;
+
+        // האזנה לשינוי מצב משתמש
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // בדיקת סטטוס אישור המשתמש במסד הנתונים
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().approved) {
+                    currentUser = user;
+                    document.getElementById('currentUsername').innerText = user.email;
+                    document.getElementById('logoutBtn').style.display = 'block';
+
+                    // בדיקה אם המשתמש הוא המנהל
+                    if (user.email === ADMIN_EMAIL) {
+                        document.getElementById('adminTabBtn').style.display = 'flex';
+                    }
+
+                    trackVisit(true);
+                    loadCloudPortfolio();
+                } else {
+                    alert("החשבון שלך ממתין לאישור מנהל המערכת.");
+                    auth.signOut();
+                }
+            } else {
+                currentUser = null;
+                document.getElementById('currentUsername').innerText = 'אורח (לא מחובר)';
+                document.getElementById('logoutBtn').style.display = 'none';
+                document.getElementById('adminTabBtn').style.display = 'none';
+                trackVisit(false);
+                portfolio = [];
+                renderTable();
+            }
+        });
+
+        // הרשמת משתמש חדש בסטטוס "לא מאושר"
+        async function register() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            if (!email || !password) return alert("אנא הזן אימייל וסיסמה.");
+
+            try {
+                const res = await auth.createUserWithEmailAndPassword(email, password);
+                const isAutoAdmin = (email === ADMIN_EMAIL);
+                await db.collection('users').doc(res.user.uid).set({
+                    email: email,
+                    approved: isAutoAdmin
+                });
+                
+                if (isAutoAdmin) {
+                    alert("נרשמת כאיש ניהול! החשבון מאושר אוטומטית.");
+                } else {
+                    alert("בקשת ההרשמה נשלחה! החשבון יופעל רק לאחר אישור מנהל.");
+                    auth.signOut();
+                }
+            } catch (err) {
+                alert("שגיאה בהרשמה: " + translateAuthError(err));
+            }
+        }
+
+        // התחברות
+        async function login() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            if (!email || !password) return alert("אנא הזן אימייל וסיסמה.");
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                switchTab('portfolio');
+            } catch (err) {
+                alert("שגיאה בהתחברות: " + translateAuthError(err));
+            }
+        }
+
+        // איפוס סיסמה
+        async function forgotPassword() {
+            const email = document.getElementById('authEmail').value.trim();
+            if (!email) {
+                return alert("קודם הזן את כתובת האימייל שלך בשדה למעלה, ואז לחץ שוב על 'שכחתי סיסמה'.");
+            }
+            try {
+                await auth.sendPasswordResetEmail(email);
+                alert("נשלח מייל איפוס סיסמה אל " + email + ". בדוק גם בתיקיית ספאם.");
+            } catch (err) {
+                alert("שגיאה בשליחת מייל איפוס: " + translateAuthError(err));
+            }
+        }
+
+        // תרגום שגיאות Firebase Auth הנפוצות לעברית ברורה
+        function translateAuthError(err) {
+            const map = {
+                'auth/wrong-password': 'הסיסמה שגויה.',
+                'auth/user-not-found': 'לא נמצא משתמש עם האימייל הזה.',
+                'auth/invalid-credential': 'אימייל או סיסמה שגויים.',
+                'auth/invalid-email': 'כתובת האימייל אינה תקינה.',
+                'auth/too-many-requests': 'יותר מדי ניסיונות כושלים. נסה שוב בעוד כמה דקות, או אפס סיסמה.',
+                'auth/email-already-in-use': 'כתובת האימייל הזו כבר רשומה במערכת.',
+                'auth/weak-password': 'הסיסמה חלשה מדי (נדרשים לפחות 6 תווים).',
+                'auth/network-request-failed': 'בעיית רשת. בדוק את החיבור לאינטרנט ונסה שוב.'
+            };
+            return map[err.code] || err.message;
+        }
+
+        function logout() {
+            auth.signOut();
+        }
+
+        // ===== מדד סיכון + מרחק משיא (עם גיבוי ואבחון) =====
+        async function fetchRiskMetrics(symbol, currentPrice) {
+            let riskLabel = 'לא זמין', riskColor = '#8b949e', distanceFromHigh = null;
+
+            try {
+                const metricResponse = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${API_KEY}`);
+                const metricData = await metricResponse.json();
+                const beta = metricData?.metric?.beta;
+                const week52High = metricData?.metric?.['52WeekHigh'];
+
+                if (typeof beta === 'number') {
+                    if (beta < 0.8) { riskLabel = 'נמוך'; riskColor = '#00ff87'; }
+                    else if (beta <= 1.3) { riskLabel = 'בינוני'; riskColor = '#ffc107'; }
+                    else { riskLabel = 'גבוה'; riskColor = '#ff5555'; }
+                } else {
+                    console.warn(`[מדד סיכון] אין נתון beta עבור ${symbol}. תגובת ה-API:`, metricData);
+                }
+
+                if (typeof week52High === 'number' && week52High > 0) {
+                    distanceFromHigh = ((week52High - currentPrice) / week52High) * 100;
+                } else {
+                    console.warn(`[מרחק משיא] אין נתון 52WeekHigh עבור ${symbol}. תגובת ה-API:`, metricData);
+                }
+            } catch (e) {
+                console.error(`[fetchRiskMetrics] שגיאת רשת עבור ${symbol}:`, e);
+            }
+
+            // גיבוי: אם אין נתון beta, נחשב מדד סיכון גס לפי טווח התנודה היומי (h/l/pc מה-quote)
+            if (riskLabel === 'לא זמין') {
+                try {
+                    const quoteResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${API_KEY}`);
+                    const q = await quoteResponse.json();
+                    if (q && q.h && q.l && q.pc) {
+                        const dailyRangePercent = ((q.h - q.l) / q.pc) * 100;
+                        if (dailyRangePercent < 2) { riskLabel = 'נמוך (משוער)'; riskColor = '#00ff87'; }
+                        else if (dailyRangePercent <= 5) { riskLabel = 'בינוני (משוער)'; riskColor = '#ffc107'; }
+                        else { riskLabel = 'גבוה (משוער)'; riskColor = '#ff5555'; }
+                    }
+                } catch (e) {
+                    console.error(`[fetchRiskMetrics גיבוי] שגיאה עבור ${symbol}:`, e);
+                }
+            }
+
+            return { riskLabel, riskColor, distanceFromHigh };
+        }
+
+        // מילוי אוטומטי של מדד סיכון/מרחק משיא למניות שחסר להן הנתון (למשל מניות ישנות שנוספו לפני התכונה הזו)
+        let autoFillInProgress = false;
+        async function autoFillMissingRiskData() {
+            if (autoFillInProgress) return;
+            const missing = portfolio.filter(s => !s.riskChecked);
+            if (missing.length === 0) return;
+
+            autoFillInProgress = true;
+            for (const stock of missing) {
+                const result = await fetchRiskMetrics(stock.symbol, stock.currentPrice);
+                stock.riskLabel = result.riskLabel;
+                stock.riskColor = result.riskColor;
+                stock.distanceFromHigh = result.distanceFromHigh;
+                stock.riskChecked = true;
+            }
+            autoFillInProgress = false;
+
+            renderTable();
+            if (currentUser) await saveCloudPortfolio();
+        }
+
+        // רענון תקופתי ברקע (כל 5 דקות) לנתוני סיכון ומרחק משיא, כדי לשמור עדכניות בלי כפתור ידני
+        setInterval(async () => {
+            if (portfolio.length === 0) return;
+            for (const stock of portfolio) {
+                const result = await fetchRiskMetrics(stock.symbol, stock.currentPrice);
+                stock.riskLabel = result.riskLabel;
+                stock.riskColor = result.riskColor;
+                stock.distanceFromHigh = result.distanceFromHigh;
+                stock.riskChecked = true;
+            }
+            renderTable();
+            if (currentUser) await saveCloudPortfolio();
+        }, 5 * 60 * 1000);
+
+        // ===== יצירת קשר עם המנהל =====
+        let contactContext = 'general';
+        function openContactModal(context) {
+            contactContext = context;
+            const title = document.getElementById('contactModalTitle');
+            const textarea = document.getElementById('contactMessage');
+            document.getElementById('contactPhone').value = '';
+            document.getElementById('contactEmail').value = currentUser ? currentUser.email : '';
+            if (context === 'subscribe') {
+                title.innerHTML = '<i class="fa-solid fa-crown"></i> בקשת הפעלת מנוי';
+                textarea.value = 'שלום, אני מעוניין/ת להפעיל מנוי לתיק ההתנגשות. אשמח לפרטי תשלום.';
+            } else {
+                title.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שליחת הודעה למנהל';
+                textarea.value = '';
+            }
+            document.getElementById('contactModalOverlay').style.display = 'flex';
+        }
+        function closeContactModal() {
+            document.getElementById('contactModalOverlay').style.display = 'none';
+        }
+
+        async function sendContactMessage() {
+            const phone = document.getElementById('contactPhone').value.trim();
+            const email = document.getElementById('contactEmail').value.trim();
+            const text = document.getElementById('contactMessage').value.trim();
+
+            if (!phone || !email) {
+                return alert('יש למלא מספר טלפון ואימייל לפני שליחת ההודעה.');
+            }
+            if (!text) return alert('אנא כתוב הודעה לפני השליחה.');
+
+            const btn = document.getElementById('sendContactBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> שולח...';
+
+            try {
+                await db.collection('messages').add({
+                    text: text,
+                    context: contactContext,
+                    contactPhone: phone,
+                    contactEmail: email,
+                    fromEmail: currentUser ? currentUser.email : 'אורח (לא מחובר)',
+                    read: false,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                sendTelegramNotification(text, phone, email, contactContext);
+                alert('ההודעה נשלחה בהצלחה! המנהל יחזור אליך בהקדם.');
+                closeContactModal();
+            } catch (err) {
+                alert('שגיאה בשליחת ההודעה: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
+            }
+        }
+
+        // ===== תיבת הודעות (לוח ניהול) =====
+        async function loadMessages() {
+            const list = document.getElementById('messagesList');
+            const badge = document.getElementById('unreadBadge');
+            list.innerHTML = '<p style="color:#8b949e; text-align:center;">טוען הודעות...</p>';
+
+            try {
+                const snapshot = await db.collection('messages').orderBy('timestamp', 'desc').get();
+                if (snapshot.empty) {
+                    list.innerHTML = '<p style="color:#8b949e; text-align:center;">אין הודעות עדיין.</p>';
+                    badge.innerText = '';
+                    return;
+                }
+
+                let unreadCount = 0;
+                list.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const m = doc.data();
+                    if (!m.read) unreadCount++;
+                    const dateStr = m.timestamp ? m.timestamp.toDate().toLocaleString('he-IL') : '';
+                    const contextLabel = m.context === 'subscribe' ? ' (בקשת מנוי)' : '';
+                    const div = document.createElement('div');
+                    div.className = 'message-item' + (m.read ? '' : ' unread');
+                    div.innerHTML = `
+                        <div class="message-meta">
+                            <span>${m.fromEmail || 'אורח'}${contextLabel}</span>
+                            <span>${dateStr}</span>
+                        </div>
+                        <div style="color:#79c0ff; font-size:0.85rem; margin-bottom:6px; display:flex; gap:15px; flex-wrap:wrap;">
+                            <span><i class="fa-solid fa-phone"></i> ${m.contactPhone || '—'}</span>
+                            <span><i class="fa-solid fa-envelope"></i> ${m.contactEmail || '—'}</span>
+                        </div>
+                        <div class="message-text">${m.text}</div>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            ${!m.read ? `<button class="btn-approve" onclick="markMessageRead('${doc.id}')">סמן כנקרא</button>` : ''}
+                            <button class="btn-delete" onclick="deleteMessage('${doc.id}')"><i class="fa-solid fa-trash"></i> מחק</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+
+                badge.innerText = unreadCount > 0 ? `(${unreadCount} חדשות)` : '';
+            } catch (err) {
+                list.innerHTML = `<p style="color:#ff5555; text-align:center;">שגיאה בטעינת הודעות: ${err.message}</p>`;
+            }
+        }
+
+        async function markMessageRead(id) {
+            await db.collection('messages').doc(id).update({ read: true });
+            loadMessages();
+        }
+
+        async function deleteMessage(id) {
+            if (!confirm('למחוק את ההודעה?')) return;
+            await db.collection('messages').doc(id).delete();
+            loadMessages();
+        }
+
+        // ===== התאמת עמודות בטבלה =====
+        const TABLE_COLUMNS = [
+            { id: 'symbol', label: 'סימבול' },
+            { id: 'name', label: 'שם המניה' },
+            { id: 'shares', label: 'כמות יחידות' },
+            { id: 'buyPrice', label: 'שער כניסה' },
+            { id: 'currentPrice', label: 'שער נוכחי' },
+            { id: 'totalCost', label: 'עלות כוללת' },
+            { id: 'currentValue', label: 'שווי נוכחי' },
+            { id: 'profitDollar', label: 'רווח / הפסד ($)' },
+            { id: 'profitPercent', label: 'רווח / הפסד (%)' },
+            { id: 'risk', label: 'מדד סיכון' },
+            { id: 'distanceHigh', label: 'מרחק משיא' },
+            { id: 'action', label: 'מחיקה' },
+            { id: 'news', label: 'חדשות' }
+        ];
+
+        function getColumnPrefs() {
+            try {
+                return JSON.parse(localStorage.getItem('tableColumnPrefs') || '{}');
+            } catch(e) { return {}; }
+        }
+
+        function populateColumnModal() {
+            const list = document.getElementById('columnCheckboxList');
+            const prefs = getColumnPrefs();
+            list.innerHTML = TABLE_COLUMNS.map(col => {
+                const checked = prefs[col.id] === false ? '' : 'checked';
+                return `
+                    <div class="column-checkbox-row">
+                        <label for="colcheck-${col.id}" style="margin:0; color:#f0f6fc; cursor:pointer;">${col.label}</label>
+                        <input type="checkbox" id="colcheck-${col.id}" ${checked} onchange="toggleColumn('${col.id}', this.checked)">
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleColumn(colId, isChecked) {
+            const prefs = getColumnPrefs();
+            prefs[colId] = isChecked;
+            localStorage.setItem('tableColumnPrefs', JSON.stringify(prefs));
+            applyColumnVisibility();
+        }
+
+        function applyColumnVisibility() {
+            const prefs = getColumnPrefs();
+            TABLE_COLUMNS.forEach(col => {
+                const visible = prefs[col.id] !== false;
+                document.querySelectorAll(`[data-col="${col.id}"]`).forEach(el => {
+                    el.style.display = visible ? '' : 'none';
+                });
+            });
+        }
+
+        function openColumnOptions() {
+            populateColumnModal();
+            document.getElementById('columnModalOverlay').style.display = 'flex';
+        }
+        function closeColumnOptions() {
+            document.getElementById('columnModalOverlay').style.display = 'none';
+        }
+
+        // ===== תחזית תשואה עתידית =====
+        function updateForecastStockList() {
+            const forecastBox = document.getElementById('forecastBox');
+            const select = document.getElementById('forecastStock');
+
+            if (portfolio.length === 0) {
+                forecastBox.style.display = 'none';
+                return;
+            }
+            forecastBox.style.display = 'block';
+
+            const prevValue = select.value;
+            select.innerHTML = portfolio.map((s, i) => `<option value="${i}">${s.symbol} — ${s.name}</option>`).join('');
+            if (prevValue && portfolio[prevValue]) select.value = prevValue;
+
+            updateForecast();
+        }
+
+        function switchForecastTab(tab) {
+            document.getElementById('forecastTabProfit').classList.toggle('active', tab === 'profit');
+            document.getElementById('forecastTabStop').classList.toggle('active', tab === 'stop');
+            document.getElementById('forecastProfitPanel').style.display = tab === 'profit' ? 'block' : 'none';
+            document.getElementById('forecastStopPanel').style.display = tab === 'stop' ? 'block' : 'none';
+            updateForecast();
+        }
+
+        function updateForecast() {
+            const select = document.getElementById('forecastStock');
+            const idx = parseInt(select.value);
+            const stock = portfolio[idx];
+            if (!stock) return;
+
+            // פאנל רווח לפי יעד אחוזים (מהמחיר הנוכחי)
+            const targetPercent = parseFloat(document.getElementById('forecastPercent').value);
+            const targetPrice = stock.currentPrice * (1 + targetPercent / 100);
+            const targetValue = stock.shares * targetPrice;
+            const targetProfitDollar = targetValue - stock.totalCost;
+            const targetProfitPercent = (targetProfitDollar / stock.totalCost) * 100;
+            const profitResult = document.getElementById('forecastProfitResult');
+            const pSign = targetProfitDollar >= 0 ? '+' : '';
+            profitResult.value = `${pSign}$${Math.abs(targetProfitDollar).toFixed(2)}  (${pSign}${Math.abs(targetProfitPercent).toFixed(2)}%)`;
+            profitResult.style.color = targetProfitDollar >= 0 ? '#00ff87' : '#ff5555';
+
+            // פאנל סטופ (הפסד/רווח בשער יציאה שנבחר)
+            const stopPriceInput = document.getElementById('forecastStopPrice');
+            const stopResult = document.getElementById('forecastStopResult');
+            const stopPrice = parseFloat(stopPriceInput.value);
+            if (isNaN(stopPrice) || stopPrice <= 0) {
+                stopResult.value = '';
+                return;
+            }
+            const stopDollar = (stopPrice - stock.buyPrice) * stock.shares;
+            const stopPercent = ((stopPrice - stock.buyPrice) / stock.buyPrice) * 100;
+            const sSign = stopDollar >= 0 ? '+' : '';
+            stopResult.value = `${sSign}$${Math.abs(stopDollar).toFixed(2)}  (${sSign}${Math.abs(stopPercent).toFixed(2)}%)`;
+            stopResult.style.color = stopDollar >= 0 ? '#00ff87' : '#ff5555';
+        }
+
+        // מחשבון תשואה
+        function openCalculator() {
+            document.getElementById('calcModalOverlay').style.display = 'flex';
+            calcProfit();
+        }
+        function closeCalculator() {
+            document.getElementById('calcModalOverlay').style.display = 'none';
+        }
+        function calcProfit() {
+            const action = document.getElementById('calcAction').value;
+            const buy = parseFloat(document.getElementById('calcBuyPrice').value);
+            const sell = parseFloat(document.getElementById('calcSellPrice').value);
+            const resultInput = document.getElementById('calcResult');
+
+            if (isNaN(buy) || isNaN(sell) || buy <= 0 || sell <= 0) {
+                resultInput.value = '';
+                resultInput.style.color = '#fff';
+                return;
+            }
+
+            const diff = sell - buy;
+            const basis = action === 'sell' ? sell : buy; // בקנייה: % ביחס לשער הקניה. במכירה (שורט): % ביחס לשער המכירה.
+            const percent = (diff / basis) * 100;
+            const sign = diff >= 0 ? '+' : '';
+
+            resultInput.value = `${sign}${diff.toFixed(2)}$  (${sign}${percent.toFixed(2)}%)`;
+            resultInput.style.color = diff >= 0 ? '#00ff87' : '#ff5555';
+        }
+
+        // מעקב ביקורים באתר (עם/בלי התחברות)
+        let visitTracked = false;
+        async function trackVisit(isLoggedIn) {
+            if (visitTracked) return;
+            visitTracked = true;
+            const field = isLoggedIn ? 'loggedInVisits' : 'guestVisits';
+            try {
+                await db.collection('stats').doc('visits').set({
+                    [field]: firebase.firestore.FieldValue.increment(1)
+                }, { merge: true });
+            } catch (e) {
+                console.error('שגיאה במעקב ביקורים:', e);
+            }
+        }
+
+        async function loadVisitStats() {
+            try {
+                const doc = await db.collection('stats').doc('visits').get();
+                const data = doc.exists ? doc.data() : {};
+                document.getElementById('guestVisitsCount').innerText = data.guestVisits || 0;
+                document.getElementById('loggedVisitsCount').innerText = data.loggedInVisits || 0;
+            } catch (e) {
+                document.getElementById('guestVisitsCount').innerText = '—';
+                document.getElementById('loggedVisitsCount').innerText = '—';
+            }
+        }
+
+        // טעינת תיק מניות מהענן
+        async function loadCloudPortfolio() {
+            if (!currentUser) return;
+            const doc = await db.collection('portfolios').doc(currentUser.uid).get();
+            if (doc.exists) {
+                portfolio = doc.data().items || [];
+            } else {
+                portfolio = [];
+            }
+            renderTable();
+        }
+
+        // שמירת תיק מניות בענן
+        async function saveCloudPortfolio() {
+            if (!currentUser) return;
+            await db.collection('portfolios').doc(currentUser.uid).set({
+                items: portfolio
+            });
+        }
+
+        // טעינת רשימת משתמשים לפאנל הניהול
+        async function loadAdminUsers() {
+            const tbody = document.getElementById('adminUsersBody');
+            tbody.innerHTML = '';
+            const snapshot = await db.collection('users').get();
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const tr = document.createElement('tr');
+                const isMainAdmin = data.email === ADMIN_EMAIL;
+                tr.innerHTML = `
+                    <td>${data.email}</td>
+                    <td style="color: ${data.approved ? '#00ff87' : '#ff5555'}">${data.approved ? 'מאושר' : 'ממתין לאישור'}</td>
+                    <td>
+                        <div style="display:flex; gap:8px; justify-content:center; flex-wrap: wrap;">
+                            ${!data.approved ? `<button class="btn-approve" onclick="approveUser('${doc.id}')">אשר משתמש</button>` : ''}
+                            ${!isMainAdmin ? `<button class="btn-delete" onclick="removeUser('${doc.id}', '${data.email}')"><i class="fa-solid fa-user-slash"></i> הסר</button>` : `<span style="color:#8b949e; font-size:0.85rem;">מנהל ראשי</span>`}
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function approveUser(uid) {
+            await db.collection('users').doc(uid).update({ approved: true });
+            alert("המשתמש אושר בהצלחה!");
+            loadAdminUsers();
+        }
+
+        // הסרת משתמש - חוסמת גישה ומוחקת את תיק ההשקעות שלו
+        // שים לב: זה לא מוחק את חשבון ה-Auth עצמו (זה דורש הרשאת Admin SDK בצד שרת),
+        // אבל זה חוסם לגמרי את הגישה שלו למערכת.
+        async function removeUser(uid, email) {
+            if (!confirm(`להסיר את ${email} מהמערכת? הפעולה תחסום את הגישה שלו ותמחק את תיק ההשקעות שלו.`)) return;
+            try {
+                await db.collection('users').doc(uid).delete();
+                await db.collection('portfolios').doc(uid).delete();
+                alert("המשתמש הוסר בהצלחה.");
+                loadAdminUsers();
+            } catch (err) {
+                alert("שגיאה בהסרת המשתמש: " + err.message);
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'portfolio') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('portfolioTab').classList.add('active');
+            } else if (tabName === 'login') {
+                document.getElementById('loginTabBtn').classList.add('active');
+                document.getElementById('loginTab').classList.add('active');
+            } else if (tabName === 'admin') {
+                document.getElementById('adminTabBtn').classList.add('active');
+                document.getElementById('adminTab').classList.add('active');
+                loadAdminUsers();
+                loadVisitStats();
+                loadMessages();
+            }
+        }
+
+        const GUEST_ADD_LIMIT = 3;
+
+        async function addStock() {
+            let guestCount = parseInt(localStorage.getItem('guestAddCount') || '0');
+
+            if (!currentUser && guestCount >= GUEST_ADD_LIMIT) {
+                alert("ניצלת את 3 ההוספות החינמיות שלך. יש להתחבר לחשבון (וקבלת אישור מנהל) כדי להמשיך ולשמור את התיק שלך לצמיתות.");
+                switchTab('login');
+                return;
+            }
+
+            const symbolInput = document.getElementById('symbol').value.trim().toUpperCase();
+            const shares = parseFloat(document.getElementById('shares').value);
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value);
+            const addBtn = document.getElementById('addBtn');
+            
+            if (!symbolInput || isNaN(shares) || isNaN(buyPrice) || shares <= 0 || buyPrice <= 0) {
+                alert("אנא מלא את כל השדות במספרים תקינים.");
+                return;
+            }
+
+            addBtn.disabled = true;
+            addBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> מושך נתונים בזמן אמת...';
+
+            try {
+                const quoteResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbolInput}&token=${API_KEY}`);
+                const quoteData = await quoteResponse.json();
+
+                if (!quoteData || !quoteData.c || quoteData.c === 0) {
+                    alert("לא ניתן למצוא נתונים עבור סימבול זה.");
+                    return;
+                }
+
+                const currentPrice = quoteData.c;
+                let companyName = symbolInput;
+                
+                try {
+                    const profileResponse = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbolInput}&token=${API_KEY}`);
+                    const profileData = await profileResponse.json();
+                    if (profileData && profileData.name) companyName = profileData.name;
+                } catch(e) {}
+
+                // מדד סיכון (לפי בטא) ומרחק משיא 52 השבועות (הקרוב ביותר לזמין דרך ה-API החינמי)
+                const riskData = await fetchRiskMetrics(symbolInput, currentPrice);
+                const { riskLabel, riskColor, distanceFromHigh } = riskData;
+
+                const totalCost = shares * buyPrice;
+                const currentValue = shares * currentPrice;
+                const profitDollar = currentValue - totalCost;
+                const profitPercent = (profitDollar / totalCost) * 100;
+
+                portfolio.push({
+                    symbol: symbolInput, name: companyName, shares, buyPrice, currentPrice,
+                    totalCost, currentValue, profitDollar, profitPercent,
+                    riskLabel, riskColor, distanceFromHigh, riskChecked: true
+                });
+
+                if (currentUser) {
+                    await saveCloudPortfolio();
+                } else {
+                    guestCount++;
+                    localStorage.setItem('guestAddCount', guestCount);
+                    const remaining = GUEST_ADD_LIMIT - guestCount;
+                    if (remaining > 0) {
+                        setTimeout(() => alert(`המניה נוספה! נשארו לך ${remaining} הוספות חינמיות לפני שתצטרך להתחבר.`), 100);
+                    } else {
+                        setTimeout(() => alert("זו הייתה ההוספה החינמית האחרונה שלך. התחבר עכשיו כדי להמשיך ולשמור את התיק שלך."), 100);
+                    }
+                }
+
+                document.getElementById('symbol').value = '';
+                document.getElementById('shares').value = '';
+                document.getElementById('buyPrice').value = '';
+                renderTable();
+
+            } catch (error) {
+                alert("שגיאה במשיכת נתונים.");
+            } finally {
+                addBtn.disabled = false;
+                addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> הוסף מניה לתיק';
+            }
+        }
+
+        async function deleteStock(index) {
+            portfolio.splice(index, 1);
+            await saveCloudPortfolio();
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = ''; 
+
+            if (portfolio.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>';
+                updateChart();
+                updateForecastStockList();
+                applyColumnVisibility();
+                return;
+            }
+
+            portfolio.forEach((stock, index) => {
+                const tr = document.createElement('tr');
+                const profitClass = stock.profitDollar >= 0 ? 'profit-pos' : 'profit-neg';
+                const sign = stock.profitDollar >= 0 ? '+' : '';
+                const yahooUrl = `https://finance.yahoo.com/quote/${stock.symbol}/news`;
+                const investingUrl = `https://www.investing.com/search/?q=${stock.symbol}`;
+
+                const riskLabel = stock.riskLabel || 'לא זמין';
+                const riskColor = stock.riskColor || '#8b949e';
+                const hasDistance = typeof stock.distanceFromHigh === 'number';
+                const distanceText = hasDistance ? `${stock.distanceFromHigh >= 0 ? '-' : '+'}${Math.abs(stock.distanceFromHigh).toFixed(1)}%` : '—';
+                const distanceColor = hasDistance ? (stock.distanceFromHigh <= 5 ? '#00ff87' : (stock.distanceFromHigh <= 20 ? '#ffc107' : '#ff5555')) : '#8b949e';
+
+                tr.innerHTML = `
+                    <td data-col="symbol" style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
+                    <td data-col="name" dir="rtl">${stock.name}</td>
+                    <td data-col="shares">${stock.shares}</td>
+                    <td data-col="buyPrice">$${stock.buyPrice.toFixed(2)}</td>
+                    <td data-col="currentPrice" style="font-weight:bold; color: #ffc107;">$${stock.currentPrice.toFixed(2)}</td>
+                    <td data-col="totalCost">$${stock.totalCost.toFixed(2)}</td>
+                    <td data-col="currentValue">$${stock.currentValue.toFixed(2)}</td>
+                    <td data-col="profitDollar" class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
+                    <td data-col="profitPercent" class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
+                    <td data-col="risk" style="font-weight:bold; color: ${riskColor};">${riskLabel}</td>
+                    <td data-col="distanceHigh" style="font-weight:bold; color: ${distanceColor};" dir="rtl">${distanceText}</td>
+                    <td data-col="action"><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
+                    <td data-col="news">
+                        <div class="news-links">
+                            <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo"><i class="fa-solid fa-newspaper"></i> Yahoo</a>
+                            <a href="${investingUrl}" target="_blank" class="news-btn news-investing"><i class="fa-solid fa-chart-line"></i> Investing</a>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            updateChart();
+            updateForecastStockList();
+            applyColumnVisibility();
+            autoFillMissingRiskData();
+        }
+
+        function updateChart() {
+            const chartBox = document.querySelector('.chart-box');
+            if (portfolio.length === 0) {
+                chartBox.style.display = 'none';
+                if (myChart) { myChart.destroy(); myChart = null; }
+                return;
+            }
+
+            chartBox.style.display = 'block';
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            const labels = portfolio.map(item => item.symbol);
+            const dataValues = portfolio.map(item => item.currentValue);
+            const palette = ['#ffc107', '#2ea043', '#388bfd', '#ff6b6b', '#a371f7', '#f0883e', '#7ee787', '#79c0ff'];
+
+            if (myChart) {
+                myChart.data.labels = labels;
+                myChart.data.datasets[0].data = dataValues;
+                myChart.data.datasets[0].backgroundColor = palette.slice(0, labels.length);
+                myChart.update();
+            } else {
+                myChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: dataValues, backgroundColor: palette.slice(0, labels.length), borderWidth: 2, borderColor: '#161b22' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
