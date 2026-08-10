@@ -59,6 +59,38 @@
         }
         header p { font-size: 1.3rem; color: #c9d1d9; max-width: 650px; margin: 0 auto; line-height: 1.5; }
 
+        /* מדדי שוק וקריפטו בזמן אמת */
+        .market-bar-container {
+            width: 100%; max-width: 1300px; background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(10px);
+            border: 1px solid #30363d; border-radius: 20px; padding: 20px 25px; margin: 0 auto 30px auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+        .market-bar-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+            border-bottom: 1px solid rgba(48, 54, 61, 0.6); padding-bottom: 10px;
+        }
+        .market-bar-header h3 {
+            font-size: 1.25rem; color: #ffc107; font-weight: 700; display: flex; align-items: center; gap: 10px;
+        }
+        .btn-refresh-market {
+            background: rgba(255, 193, 7, 0.1); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.3);
+            padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700; transition: all 0.2s ease;
+        }
+        .btn-refresh-market:hover { background: rgba(255, 193, 7, 0.25); }
+        .market-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;
+        }
+        .market-card {
+            background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 12px;
+            padding: 12px; display: flex; flex-direction: column; justify-content: space-between;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .market-card:hover { transform: translateY(-2px); border-color: #ffc107; }
+        .market-card-title { font-size: 0.9rem; font-weight: 700; color: #f0f6fc; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .market-card-symbol { font-size: 0.75rem; color: #8b949e; }
+        .market-card-price { font-size: 1.1rem; font-weight: 800; color: #ffffff; margin: 4px 0; }
+        .market-card-change { font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+
         /* ריבועי סטטיסטיקה בלשונית ניהול */
         .stats-row { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; }
         .stat-box {
@@ -204,12 +236,15 @@
         }
         .chart-wrapper { position: relative; height: 320px; width: 100%; }
 
-        /* התאמות מסך: שמירת התוכן בתוך רוחב המסך, בלי לשנות את תצוגת המחשב */
+        /* התאמות מסך */
         input, select, textarea { max-width: 100%; }
         .modal-overlay { overflow-y: auto; }
         .modal-box { max-height: calc(100vh - 40px); overflow-y: auto; }
 
         @media (max-width: 800px) {
+            .market-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+            .market-card { padding: 10px; }
+            .market-card-price { font-size: 0.95rem; }
             .form-grid { grid-template-columns: 1fr; }
             .input-group.full-width, .btn-add { grid-column: span 1; }
             header h1 { font-size: 2.6rem; }
@@ -287,6 +322,16 @@
 
     <!-- בלוק התיק -->
     <div id="portfolioTab" class="tab-content active">
+
+        <!-- סקציית מדדי שוק וקריפטו בזמן אמת -->
+        <div class="market-bar-container">
+            <div class="market-bar-header">
+                <h3><i class="fa-solid fa-chart-line"></i> מדדי שוק וקריפטו בזמן אמת</h3>
+                <button class="btn-refresh-market" onclick="fetchMarketData()"><i class="fa-solid fa-arrows-rotate"></i> רענן נתונים</button>
+            </div>
+            <div class="market-grid" id="marketGrid"></div>
+        </div>
+
         <div class="container">
             <h3 class="box-title">הוסף מניות ובנה את טבלת המעקב המנצחת שלך.</h3>
             <div class="form-grid">
@@ -543,6 +588,80 @@
         const TELEGRAM_BOT_TOKEN = "8849164524:AAHcglDzft_UIQDCY3hmgBpEHm2-4Oz6BdU";
         const TELEGRAM_CHAT_ID = "1174515533";
 
+        // ===== רשימת מדדים ומטבעות בזמן אמת =====
+        const MARKET_ASSETS = [
+            { id: 'sp500', name: 'S&P 500', symbol: 'SPY', api: 'finnhub' },
+            { id: 'nasdaq', name: 'נאסד"ק', symbol: 'ONEQ', api: 'finnhub' },
+            { id: 'ndx100', name: 'נאסד"ק 100', symbol: 'QQQ', api: 'finnhub' },
+            { id: 'dow30', name: 'דאו ג\'ונס 30', symbol: 'DIA', api: 'finnhub' },
+            { id: 'russell2000', name: 'ראסל 2000', symbol: 'IWM', api: 'finnhub' },
+            { id: 'vix', name: 'VIX', symbol: 'VXX', api: 'finnhub' },
+            { id: 'voo', name: 'VOO', symbol: 'VOO', api: 'finnhub' },
+            { id: 'ivv', name: 'IVV', symbol: 'IVV', api: 'finnhub' },
+            { id: 'sox', name: 'SOX', symbol: 'SOXX', api: 'finnhub' },
+            { id: 'qqq', name: 'QQQ', symbol: 'QQQ', api: 'finnhub' },
+            { id: 'dia', name: 'DIA', symbol: 'DIA', api: 'finnhub' },
+            { id: 'btc', name: 'ביטקוין', symbol: 'BTCUSDT', api: 'binance' },
+            { id: 'eth', name: 'אתריום', symbol: 'ETHUSDT', api: 'binance' },
+            { id: 'sol', name: 'סולאנה', symbol: 'SOLUSDT', api: 'binance' }
+        ];
+
+        async function fetchMarketData() {
+            const grid = document.getElementById('marketGrid');
+            if (!grid) return;
+
+            if (grid.children.length === 0) {
+                grid.innerHTML = MARKET_ASSETS.map(asset => `
+                    <div class="market-card" id="mcard-${asset.id}">
+                        <div class="market-card-title">
+                            <span>${asset.name}</span>
+                            <span class="market-card-symbol">${asset.symbol.replace('USDT','')}</span>
+                        </div>
+                        <div class="market-card-price" id="mprice-${asset.id}">טוען...</div>
+                        <div class="market-card-change" id="mchange-${asset.id}">—</div>
+                    </div>
+                `).join('');
+            }
+
+            for (const asset of MARKET_ASSETS) {
+                try {
+                    let price = null, changePercent = null;
+                    if (asset.api === 'binance') {
+                        const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${asset.symbol}`);
+                        const data = await res.json();
+                        if (data && data.lastPrice) {
+                            price = parseFloat(data.lastPrice);
+                            changePercent = parseFloat(data.priceChangePercent);
+                        }
+                    } else {
+                        const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${asset.symbol}&token=${API_KEY}`);
+                        const data = await res.json();
+                        if (data && data.c && data.c > 0) {
+                            price = data.c;
+                            changePercent = data.dp !== undefined && data.dp !== null ? data.dp : ((data.c - data.pc) / data.pc) * 100;
+                        }
+                    }
+
+                    const priceEl = document.getElementById(`mprice-${asset.id}`);
+                    const changeEl = document.getElementById(`mchange-${asset.id}`);
+
+                    if (price !== null && priceEl && changeEl) {
+                        const formattedPrice = price >= 1000 ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : price.toFixed(2);
+                        priceEl.innerText = `$${formattedPrice}`;
+                        
+                        const sign = changePercent >= 0 ? '+' : '';
+                        const color = changePercent >= 0 ? '#00ff87' : '#ff5555';
+                        const icon = changePercent >= 0 ? '<i class="fa-solid fa-caret-up"></i>' : '<i class="fa-solid fa-caret-down"></i>';
+                        
+                        changeEl.innerHTML = `${icon} ${sign}${changePercent.toFixed(2)}%`;
+                        changeEl.style.color = color;
+                    }
+                } catch (e) {
+                    console.error(`שגיאה בטעינת נתונים עבור ${asset.name}:`, e);
+                }
+            }
+        }
+
         async function sendTelegramNotification(text, phone, email, context) {
             if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('הכנס_כאן')) return;
             const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה' : '📩 הודעה חדשה מהאתר';
@@ -570,14 +689,12 @@
         // האזנה לשינוי מצב משתמש
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // בדיקת סטטוס אישור המשתמש במסד הנתונים
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists && userDoc.data().approved) {
                     currentUser = user;
                     document.getElementById('currentUsername').innerText = user.email;
                     document.getElementById('logoutBtn').style.display = 'block';
 
-                    // בדיקה אם המשתמש הוא המנהל
                     if (user.email === ADMIN_EMAIL) {
                         document.getElementById('adminTabBtn').style.display = 'flex';
                     }
@@ -652,7 +769,6 @@
             }
         }
 
-        // תרגום שגיאות Firebase Auth הנפוצות לעברית ברורה
         function translateAuthError(err) {
             const map = {
                 'auth/wrong-password': 'הסיסמה שגויה.',
@@ -671,7 +787,6 @@
             auth.signOut();
         }
 
-        // ===== מדד סיכון + מרחק משיא (עם גיבוי ואבחון) =====
         async function fetchRiskMetrics(symbol, currentPrice) {
             let riskLabel = 'לא זמין', riskColor = '#8b949e', distanceFromHigh = null;
 
@@ -685,20 +800,15 @@
                     if (beta < 0.8) { riskLabel = 'נמוך'; riskColor = '#00ff87'; }
                     else if (beta <= 1.3) { riskLabel = 'בינוני'; riskColor = '#ffc107'; }
                     else { riskLabel = 'גבוה'; riskColor = '#ff5555'; }
-                } else {
-                    console.warn(`[מדד סיכון] אין נתון beta עבור ${symbol}. תגובת ה-API:`, metricData);
                 }
 
                 if (typeof week52High === 'number' && week52High > 0) {
                     distanceFromHigh = ((week52High - currentPrice) / week52High) * 100;
-                } else {
-                    console.warn(`[מרחק משיא] אין נתון 52WeekHigh עבור ${symbol}. תגובת ה-API:`, metricData);
                 }
             } catch (e) {
                 console.error(`[fetchRiskMetrics] שגיאת רשת עבור ${symbol}:`, e);
             }
 
-            // גיבוי: אם אין נתון beta, נחשב מדד סיכון גס לפי טווח התנודה היומי (h/l/pc מה-quote)
             if (riskLabel === 'לא זמין') {
                 try {
                     const quoteResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${API_KEY}`);
@@ -709,15 +819,12 @@
                         else if (dailyRangePercent <= 5) { riskLabel = 'בינוני (משוער)'; riskColor = '#ffc107'; }
                         else { riskLabel = 'גבוה (משוער)'; riskColor = '#ff5555'; }
                     }
-                } catch (e) {
-                    console.error(`[fetchRiskMetrics גיבוי] שגיאה עבור ${symbol}:`, e);
-                }
+                } catch (e) {}
             }
 
             return { riskLabel, riskColor, distanceFromHigh };
         }
 
-        // מילוי אוטומטי של מדד סיכון/מרחק משיא למניות שחסר להן הנתון (למשל מניות ישנות שנוספו לפני התכונה הזו)
         let autoFillInProgress = false;
         async function autoFillMissingRiskData() {
             if (autoFillInProgress) return;
@@ -738,7 +845,6 @@
             if (currentUser) await saveCloudPortfolio();
         }
 
-        // רענון תקופתי ברקע (כל 5 דקות) לנתוני סיכון ומרחק משיא, כדי לשמור עדכניות בלי כפתור ידני
         setInterval(async () => {
             if (portfolio.length === 0) return;
             for (const stock of portfolio) {
@@ -752,7 +858,6 @@
             if (currentUser) await saveCloudPortfolio();
         }, 5 * 60 * 1000);
 
-        // ===== יצירת קשר עם המנהל =====
         let contactContext = 'general';
         function openContactModal(context) {
             contactContext = context;
@@ -778,9 +883,7 @@
             const email = document.getElementById('contactEmail').value.trim();
             const text = document.getElementById('contactMessage').value.trim();
 
-            if (!phone || !email) {
-                return alert('יש למלא מספר טלפון ואימייל לפני שליחת ההודעה.');
-            }
+            if (!phone || !email) return alert('יש למלא מספר טלפון ואימייל לפני שליחת ההודעה.');
             if (!text) return alert('אנא כתוב הודעה לפני השליחה.');
 
             const btn = document.getElementById('sendContactBtn');
@@ -808,7 +911,6 @@
             }
         }
 
-        // ===== תיבת הודעות (לוח ניהול) =====
         async function loadMessages() {
             const list = document.getElementById('messagesList');
             const badge = document.getElementById('unreadBadge');
@@ -866,7 +968,6 @@
             loadMessages();
         }
 
-        // ===== התאמת עמודות בטבלה =====
         const TABLE_COLUMNS = [
             { id: 'symbol', label: 'סימבול' },
             { id: 'name', label: 'שם המניה' },
@@ -928,7 +1029,6 @@
             document.getElementById('columnModalOverlay').style.display = 'none';
         }
 
-        // ===== תחזית תשואה עתידית =====
         function updateForecastStockList() {
             const forecastBox = document.getElementById('forecastBox');
             const select = document.getElementById('forecastStock');
@@ -960,7 +1060,6 @@
             const stock = portfolio[idx];
             if (!stock) return;
 
-            // פאנל רווח לפי יעד אחוזים (מהמחיר הנוכחי)
             const targetPercent = parseFloat(document.getElementById('forecastPercent').value);
             const targetPrice = stock.currentPrice * (1 + targetPercent / 100);
             const targetValue = stock.shares * targetPrice;
@@ -971,7 +1070,6 @@
             profitResult.value = `${pSign}$${Math.abs(targetProfitDollar).toFixed(2)}  (${pSign}${Math.abs(targetProfitPercent).toFixed(2)}%)`;
             profitResult.style.color = targetProfitDollar >= 0 ? '#00ff87' : '#ff5555';
 
-            // פאנל סטופ (הפסד/רווח בשער יציאה שנבחר)
             const stopPriceInput = document.getElementById('forecastStopPrice');
             const stopResult = document.getElementById('forecastStopResult');
             const stopPrice = parseFloat(stopPriceInput.value);
@@ -986,7 +1084,6 @@
             stopResult.style.color = stopDollar >= 0 ? '#00ff87' : '#ff5555';
         }
 
-        // מחשבון תשואה
         function openCalculator() {
             document.getElementById('calcModalOverlay').style.display = 'flex';
             calcProfit();
@@ -1007,7 +1104,7 @@
             }
 
             const diff = sell - buy;
-            const basis = action === 'sell' ? sell : buy; // בקנייה: % ביחס לשער הקניה. במכירה (שורט): % ביחס לשער המכירה.
+            const basis = action === 'sell' ? sell : buy;
             const percent = (diff / basis) * 100;
             const sign = diff >= 0 ? '+' : '';
 
@@ -1015,7 +1112,6 @@
             resultInput.style.color = diff >= 0 ? '#00ff87' : '#ff5555';
         }
 
-        // מעקב ביקורים באתר (עם/בלי התחברות)
         let visitTracked = false;
         async function trackVisit(isLoggedIn) {
             if (visitTracked) return;
@@ -1042,7 +1138,6 @@
             }
         }
 
-        // טעינת תיק מניות מהענן
         async function loadCloudPortfolio() {
             if (!currentUser) return;
             const doc = await db.collection('portfolios').doc(currentUser.uid).get();
@@ -1054,7 +1149,6 @@
             renderTable();
         }
 
-        // שמירת תיק מניות בענן
         async function saveCloudPortfolio() {
             if (!currentUser) return;
             await db.collection('portfolios').doc(currentUser.uid).set({
@@ -1062,7 +1156,6 @@
             });
         }
 
-        // טעינת רשימת משתמשים לפאנל הניהול
         async function loadAdminUsers() {
             const tbody = document.getElementById('adminUsersBody');
             tbody.innerHTML = '';
@@ -1092,9 +1185,6 @@
             loadAdminUsers();
         }
 
-        // הסרת משתמש - חוסמת גישה ומוחקת את תיק ההשקעות שלו
-        // שים לב: זה לא מוחק את חשבון ה-Auth עצמו (זה דורש הרשאת Admin SDK בצד שרת),
-        // אבל זה חוסם לגמרי את הגישה שלו למערכת.
         async function removeUser(uid, email) {
             if (!confirm(`להסיר את ${email} מהמערכת? הפעולה תחסום את הגישה שלו ותמחק את תיק ההשקעות שלו.`)) return;
             try {
@@ -1168,7 +1258,6 @@
                     if (profileData && profileData.name) companyName = profileData.name;
                 } catch(e) {}
 
-                // מדד סיכון (לפי בטא) ומרחק משיא 52 השבועות (הקרוב ביותר לזמין דרך ה-API החינמי)
                 const riskData = await fetchRiskMetrics(symbolInput, currentPrice);
                 const { riskLabel, riskColor, distanceFromHigh } = riskData;
 
@@ -1299,6 +1388,12 @@
                 });
             }
         }
+
+        // טעינה ראשונית ועדכון אוטומטי של המדדים
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchMarketData();
+            setInterval(fetchMarketData, 60000);
+        });
     </script>
 </body>
 </html>
