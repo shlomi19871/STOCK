@@ -590,7 +590,7 @@
         let lastFinnhubRequestAt = 0;
 
         // הגדרות התראת טלגרם
-        const TELEGRAM_BOT_TOKEN = "8849164524:AAHcglDzft_UIQDCY3hmgBpEHm2-4Oz6BdU";
+        const TELEGRAM_BOT_TOKEN = "8996503881:AAFw851erUAgn6dZjLyc6VjAksCEtc2fj2U";
         const TELEGRAM_CHAT_ID = "1174515533";
 
         // ===== רשימת מדדים ומטבעות בזמן אמת =====
@@ -710,8 +710,11 @@
 
         async function sendTelegramNotification(text, phone, email, context) {
             if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('הכנס_כאן')) return;
-            const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה' : '📩 הודעה חדשה מהאתר';
-            const message = `${contextLabel}\n\n📞 טלפון: ${phone}\n✉️ אימייל: ${email}\n\n${text}`;
+            const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה'
+                : context === 'register' ? '🆕 נרשם חדש באתר'
+                : '📩 הודעה חדשה מהאתר';
+            const phoneLine = phone ? `📞 טלפון: ${phone}\n` : '';
+            const message = `${contextLabel}\n\n${phoneLine}✉️ אימייל: ${email}\n\n${text}`;
             try {
                 await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
                     method: 'POST',
@@ -779,6 +782,7 @@
                 if (isAutoAdmin) {
                     alert("נרשמת כאיש ניהול! החשבון מאושר אוטומטית.");
                 } else {
+                    sendTelegramNotification("משתמש חדש נרשם וממתין לאישור.", '', email, 'register');
                     alert("בקשת ההרשמה נשלחה! החשבון יופעל רק לאחר אישור מנהל.");
                     auth.signOut();
                 }
