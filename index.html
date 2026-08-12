@@ -583,6 +583,11 @@
         const ADMIN_EMAIL = "shlomi19871@gmail.com";
 
         const API_KEY = "d9p11a9r01qh40a7cb4gd9p11a9r01qh40a7cb50";
+        const FINNHUB_CACHE_TTL_MS = 2 * 60 * 1000;
+        const FINNHUB_MIN_REQUEST_GAP_MS = 350;
+        const FINNHUB_SYMBOL_RE = /^[A-Z0-9.-]{1,12}$/;
+        const finnhubCache = new Map();
+        let lastFinnhubRequestAt = 0;
 
         // הגדרות התראת טלגרם
         const TELEGRAM_BOT_TOKEN = "8849164524:AAHcglDzft_UIQDCY3hmgBpEHm2-4Oz6BdU";
@@ -605,6 +610,48 @@
             { id: 'eth', name: 'אתריום', symbol: 'ETHUSDT', api: 'binance' },
             { id: 'sol', name: 'סולאנה', symbol: 'SOLUSDT', api: 'binance' }
         ];
+
+        function isValidSymbol(symbol) {
+            return FINNHUB_SYMBOL_RE.test(String(symbol || '').trim().toUpperCase());
+        }
+
+        async function waitForFinnhubTurn() {
+            const elapsed = Date.now() - lastFinnhubRequestAt;
+            if (elapsed < FINNHUB_MIN_REQUEST_GAP_MS) {
+                await new Promise(resolve => setTimeout(resolve, FINNHUB_MIN_REQUEST_GAP_MS - elapsed));
+            }
+            lastFinnhubRequestAt = Date.now();
+        }
+
+        async function fetchFinnhubJson(endpoint, params = {}) {
+            const symbol = String(params.symbol || '').trim().toUpperCase();
+            if (!isValidSymbol(symbol)) {
+                throw new Error('סימבול לא תקין');
+            }
+
+            const query = new URLSearchParams({ ...params, symbol, token: API_KEY });
+            const url = `https://finnhub.io/api/v1/${endpoint}?${query.toString()}`;
+            const cacheKey = `${endpoint}:${query.toString().replace(API_KEY, '[token]')}`;
+            const cached = finnhubCache.get(cacheKey);
+            if (cached && Date.now() - cached.createdAt < FINNHUB_CACHE_TTL_MS) {
+                return cached.data;
+            }
+
+            await waitForFinnhubTurn();
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) {
+                    throw new Error(`Finnhub returned ${response.status}`);
+                }
+                const data = await response.json();
+                finnhubCache.set(cacheKey, { data, createdAt: Date.now() });
+                return data;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
 
         async function fetchMarketData() {
             const grid = document.getElementById('marketGrid');
@@ -634,8 +681,7 @@
                             changePercent = parseFloat(data.priceChangePercent);
                         }
                     } else {
-                        const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${asset.symbol}&token=${API_KEY}`);
-                        const data = await res.json();
+                        const data = await fetchFinnhubJson('quote', { symbol: asset.symbol });
                         if (data && data.c && data.c > 0) {
                             price = data.c;
                             changePercent = data.dp !== undefined && data.dp !== null ? data.dp : ((data.c - data.pc) / data.pc) * 100;
@@ -789,10 +835,10 @@
 
         async function fetchRiskMetrics(symbol, currentPrice) {
             let riskLabel = 'לא זמין', riskColor = '#8b949e', distanceFromHigh = null;
+            if (!isValidSymbol(symbol)) return { riskLabel, riskColor, distanceFromHigh };
 
             try {
-                const metricResponse = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${API_KEY}`);
-                const metricData = await metricResponse.json();
+                const metricData = await fetchFinnhubJson('stock/metric', { symbol, metric: 'all' });
                 const beta = metricData?.metric?.beta;
                 const week52High = metricData?.metric?.['52WeekHigh'];
 
@@ -811,8 +857,7 @@
 
             if (riskLabel === 'לא זמין') {
                 try {
-                    const quoteResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${API_KEY}`);
-                    const q = await quoteResponse.json();
+                    const q = await fetchFinnhubJson('quote', { symbol });
                     if (q && q.h && q.l && q.pc) {
                         const dailyRangePercent = ((q.h - q.l) / q.pc) * 100;
                         if (dailyRangePercent < 2) { riskLabel = 'נמוך (משוער)'; riskColor = '#00ff87'; }
@@ -856,7 +901,7 @@
             }
             renderTable();
             if (currentUser) await saveCloudPortfolio();
-        }, 5 * 60 * 1000);
+        }, 30 * 60 * 1000);
 
         let contactContext = 'general';
         function openContactModal(context) {
@@ -933,27 +978,55 @@
                     const contextLabel = m.context === 'subscribe' ? ' (בקשת מנוי)' : '';
                     const div = document.createElement('div');
                     div.className = 'message-item' + (m.read ? '' : ' unread');
-                    div.innerHTML = `
-                        <div class="message-meta">
-                            <span>${m.fromEmail || 'אורח'}${contextLabel}</span>
-                            <span>${dateStr}</span>
-                        </div>
-                        <div style="color:#79c0ff; font-size:0.85rem; margin-bottom:6px; display:flex; gap:15px; flex-wrap:wrap;">
-                            <span><i class="fa-solid fa-phone"></i> ${m.contactPhone || '—'}</span>
-                            <span><i class="fa-solid fa-envelope"></i> ${m.contactEmail || '—'}</span>
-                        </div>
-                        <div class="message-text">${m.text}</div>
-                        <div style="display:flex; gap:8px; margin-top:10px;">
-                            ${!m.read ? `<button class="btn-approve" onclick="markMessageRead('${doc.id}')">סמן כנקרא</button>` : ''}
-                            <button class="btn-delete" onclick="deleteMessage('${doc.id}')"><i class="fa-solid fa-trash"></i> מחק</button>
-                        </div>
-                    `;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'message-meta';
+                    const from = document.createElement('span');
+                    from.textContent = `${m.fromEmail || 'אורח'}${contextLabel}`;
+                    const date = document.createElement('span');
+                    date.textContent = dateStr;
+                    meta.append(from, date);
+
+                    const contacts = document.createElement('div');
+                    contacts.style.cssText = 'color:#79c0ff; font-size:0.85rem; margin-bottom:6px; display:flex; gap:15px; flex-wrap:wrap;';
+                    const phone = document.createElement('span');
+                    phone.innerHTML = '<i class="fa-solid fa-phone"></i> ';
+                    phone.append(document.createTextNode(m.contactPhone || '—'));
+                    const email = document.createElement('span');
+                    email.innerHTML = '<i class="fa-solid fa-envelope"></i> ';
+                    email.append(document.createTextNode(m.contactEmail || '—'));
+                    contacts.append(phone, email);
+
+                    const text = document.createElement('div');
+                    text.className = 'message-text';
+                    text.textContent = m.text || '';
+
+                    const actions = document.createElement('div');
+                    actions.style.cssText = 'display:flex; gap:8px; margin-top:10px;';
+                    if (!m.read) {
+                        const readBtn = document.createElement('button');
+                        readBtn.className = 'btn-approve';
+                        readBtn.textContent = 'סמן כנקרא';
+                        readBtn.addEventListener('click', () => markMessageRead(doc.id));
+                        actions.appendChild(readBtn);
+                    }
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn-delete';
+                    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> מחק';
+                    deleteBtn.addEventListener('click', () => deleteMessage(doc.id));
+                    actions.appendChild(deleteBtn);
+
+                    div.append(meta, contacts, text, actions);
                     list.appendChild(div);
                 });
 
                 badge.innerText = unreadCount > 0 ? `(${unreadCount} חדשות)` : '';
             } catch (err) {
-                list.innerHTML = `<p style="color:#ff5555; text-align:center;">שגיאה בטעינת הודעות: ${err.message}</p>`;
+                list.innerHTML = '';
+                const error = document.createElement('p');
+                error.style.cssText = 'color:#ff5555; text-align:center;';
+                error.textContent = `שגיאה בטעינת הודעות: ${err.message}`;
+                list.appendChild(error);
             }
         }
 
@@ -1040,7 +1113,13 @@
             forecastBox.style.display = 'block';
 
             const prevValue = select.value;
-            select.innerHTML = portfolio.map((s, i) => `<option value="${i}">${s.symbol} — ${s.name}</option>`).join('');
+            select.innerHTML = '';
+            portfolio.forEach((s, i) => {
+                const option = document.createElement('option');
+                option.value = String(i);
+                option.textContent = `${s.symbol || ''} — ${s.name || ''}`;
+                select.appendChild(option);
+            });
             if (prevValue && portfolio[prevValue]) select.value = prevValue;
 
             updateForecast();
@@ -1165,16 +1244,40 @@
                 const data = doc.data();
                 const tr = document.createElement('tr');
                 const isMainAdmin = data.email === ADMIN_EMAIL;
-                tr.innerHTML = `
-                    <td>${data.email}</td>
-                    <td style="color: ${data.approved ? '#00ff87' : '#ff5555'}">${data.approved ? 'מאושר' : 'ממתין לאישור'}</td>
-                    <td>
-                        <div style="display:flex; gap:8px; justify-content:center; flex-wrap: wrap;">
-                            ${!data.approved ? `<button class="btn-approve" onclick="approveUser('${doc.id}')">אשר משתמש</button>` : ''}
-                            ${!isMainAdmin ? `<button class="btn-delete" onclick="removeUser('${doc.id}', '${data.email}')"><i class="fa-solid fa-user-slash"></i> הסר</button>` : `<span style="color:#8b949e; font-size:0.85rem;">מנהל ראשי</span>`}
-                        </div>
-                    </td>
-                `;
+                const emailTd = document.createElement('td');
+                emailTd.textContent = data.email || '';
+
+                const statusTd = document.createElement('td');
+                statusTd.style.color = data.approved ? '#00ff87' : '#ff5555';
+                statusTd.textContent = data.approved ? 'מאושר' : 'ממתין לאישור';
+
+                const actionsTd = document.createElement('td');
+                const actions = document.createElement('div');
+                actions.style.cssText = 'display:flex; gap:8px; justify-content:center; flex-wrap: wrap;';
+
+                if (!data.approved) {
+                    const approveBtn = document.createElement('button');
+                    approveBtn.className = 'btn-approve';
+                    approveBtn.textContent = 'אשר משתמש';
+                    approveBtn.addEventListener('click', () => approveUser(doc.id));
+                    actions.appendChild(approveBtn);
+                }
+
+                if (!isMainAdmin) {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn-delete';
+                    removeBtn.innerHTML = '<i class="fa-solid fa-user-slash"></i> הסר';
+                    removeBtn.addEventListener('click', () => removeUser(doc.id, data.email || ''));
+                    actions.appendChild(removeBtn);
+                } else {
+                    const mainAdmin = document.createElement('span');
+                    mainAdmin.style.cssText = 'color:#8b949e; font-size:0.85rem;';
+                    mainAdmin.textContent = 'מנהל ראשי';
+                    actions.appendChild(mainAdmin);
+                }
+
+                actionsTd.appendChild(actions);
+                tr.append(emailTd, statusTd, actionsTd);
                 tbody.appendChild(tr);
             });
         }
@@ -1236,13 +1339,16 @@
                 alert("אנא מלא את כל השדות במספרים תקינים.");
                 return;
             }
+            if (!isValidSymbol(symbolInput)) {
+                alert("הסימבול יכול להכיל רק אותיות באנגלית, מספרים, נקודה או מקף, עד 12 תווים.");
+                return;
+            }
 
             addBtn.disabled = true;
             addBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> מושך נתונים בזמן אמת...';
 
             try {
-                const quoteResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbolInput}&token=${API_KEY}`);
-                const quoteData = await quoteResponse.json();
+                const quoteData = await fetchFinnhubJson('quote', { symbol: symbolInput });
 
                 if (!quoteData || !quoteData.c || quoteData.c === 0) {
                     alert("לא ניתן למצוא נתונים עבור סימבול זה.");
@@ -1253,8 +1359,7 @@
                 let companyName = symbolInput;
                 
                 try {
-                    const profileResponse = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbolInput}&token=${API_KEY}`);
-                    const profileData = await profileResponse.json();
+                    const profileData = await fetchFinnhubJson('stock/profile2', { symbol: symbolInput });
                     if (profileData && profileData.name) companyName = profileData.name;
                 } catch(e) {}
 
@@ -1320,35 +1425,68 @@
                 const tr = document.createElement('tr');
                 const profitClass = stock.profitDollar >= 0 ? 'profit-pos' : 'profit-neg';
                 const sign = stock.profitDollar >= 0 ? '+' : '';
-                const yahooUrl = `https://finance.yahoo.com/quote/${stock.symbol}/news`;
-                const investingUrl = `https://www.investing.com/search/?q=${stock.symbol}`;
+                const safeSymbolForUrl = encodeURIComponent(stock.symbol || '');
+                const yahooUrl = `https://finance.yahoo.com/quote/${safeSymbolForUrl}/news`;
+                const investingUrl = `https://www.investing.com/search/?q=${safeSymbolForUrl}`;
 
                 const riskLabel = stock.riskLabel || 'לא זמין';
-                const riskColor = stock.riskColor || '#8b949e';
+                const riskColor = /^#[0-9a-fA-F]{6}$/.test(stock.riskColor || '') ? stock.riskColor : '#8b949e';
                 const hasDistance = typeof stock.distanceFromHigh === 'number';
                 const distanceText = hasDistance ? `${stock.distanceFromHigh >= 0 ? '-' : '+'}${Math.abs(stock.distanceFromHigh).toFixed(1)}%` : '—';
                 const distanceColor = hasDistance ? (stock.distanceFromHigh <= 5 ? '#00ff87' : (stock.distanceFromHigh <= 20 ? '#ffc107' : '#ff5555')) : '#8b949e';
 
-                tr.innerHTML = `
-                    <td data-col="symbol" style="font-weight:bold; font-size: 1.1rem;">${stock.symbol}</td>
-                    <td data-col="name" dir="rtl">${stock.name}</td>
-                    <td data-col="shares">${stock.shares}</td>
-                    <td data-col="buyPrice">$${stock.buyPrice.toFixed(2)}</td>
-                    <td data-col="currentPrice" style="font-weight:bold; color: #ffc107;">$${stock.currentPrice.toFixed(2)}</td>
-                    <td data-col="totalCost">$${stock.totalCost.toFixed(2)}</td>
-                    <td data-col="currentValue">$${stock.currentValue.toFixed(2)}</td>
-                    <td data-col="profitDollar" class="${profitClass}" dir="ltr">${sign}$${Math.abs(stock.profitDollar).toFixed(2)}</td>
-                    <td data-col="profitPercent" class="${profitClass}" dir="ltr">${sign}${Math.abs(stock.profitPercent).toFixed(2)}%</td>
-                    <td data-col="risk" style="font-weight:bold; color: ${riskColor};">${riskLabel}</td>
-                    <td data-col="distanceHigh" style="font-weight:bold; color: ${distanceColor};" dir="rtl">${distanceText}</td>
-                    <td data-col="action"><button class="btn-delete" onclick="deleteStock(${index})"><i class="fa-solid fa-trash"></i></button></td>
-                    <td data-col="news">
-                        <div class="news-links">
-                            <a href="${yahooUrl}" target="_blank" class="news-btn news-yahoo"><i class="fa-solid fa-newspaper"></i> Yahoo</a>
-                            <a href="${investingUrl}" target="_blank" class="news-btn news-investing"><i class="fa-solid fa-chart-line"></i> Investing</a>
-                        </div>
-                    </td>
-                `;
+                const cells = [
+                    ['symbol', stock.symbol || '', 'font-weight:bold; font-size: 1.1rem;'],
+                    ['name', stock.name || '', '', 'rtl'],
+                    ['shares', stock.shares],
+                    ['buyPrice', `$${stock.buyPrice.toFixed(2)}`],
+                    ['currentPrice', `$${stock.currentPrice.toFixed(2)}`, 'font-weight:bold; color: #ffc107;'],
+                    ['totalCost', `$${stock.totalCost.toFixed(2)}`],
+                    ['currentValue', `$${stock.currentValue.toFixed(2)}`],
+                    ['profitDollar', `${sign}$${Math.abs(stock.profitDollar).toFixed(2)}`, '', 'ltr', profitClass],
+                    ['profitPercent', `${sign}${Math.abs(stock.profitPercent).toFixed(2)}%`, '', 'ltr', profitClass],
+                    ['risk', riskLabel, `font-weight:bold; color: ${riskColor};`],
+                    ['distanceHigh', distanceText, `font-weight:bold; color: ${distanceColor};`, 'rtl']
+                ];
+
+                cells.forEach(([col, value, style, dir, className]) => {
+                    const td = document.createElement('td');
+                    td.dataset.col = col;
+                    if (style) td.style.cssText = style;
+                    if (dir) td.dir = dir;
+                    if (className) td.className = className;
+                    td.textContent = value;
+                    tr.appendChild(td);
+                });
+
+                const actionTd = document.createElement('td');
+                actionTd.dataset.col = 'action';
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                deleteBtn.addEventListener('click', () => deleteStock(index));
+                actionTd.appendChild(deleteBtn);
+                tr.appendChild(actionTd);
+
+                const newsTd = document.createElement('td');
+                newsTd.dataset.col = 'news';
+                const newsLinks = document.createElement('div');
+                newsLinks.className = 'news-links';
+                const yahooLink = document.createElement('a');
+                yahooLink.href = yahooUrl;
+                yahooLink.target = '_blank';
+                yahooLink.rel = 'noopener noreferrer';
+                yahooLink.className = 'news-btn news-yahoo';
+                yahooLink.innerHTML = '<i class="fa-solid fa-newspaper"></i> Yahoo';
+                const investingLink = document.createElement('a');
+                investingLink.href = investingUrl;
+                investingLink.target = '_blank';
+                investingLink.rel = 'noopener noreferrer';
+                investingLink.className = 'news-btn news-investing';
+                investingLink.innerHTML = '<i class="fa-solid fa-chart-line"></i> Investing';
+                newsLinks.append(yahooLink, investingLink);
+                newsTd.appendChild(newsLinks);
+                tr.appendChild(newsTd);
                 tbody.appendChild(tr);
             });
 
@@ -1392,7 +1530,7 @@
         // טעינה ראשונית ועדכון אוטומטי של המדדים
         window.addEventListener('DOMContentLoaded', () => {
             fetchMarketData();
-            setInterval(fetchMarketData, 60000);
+            setInterval(fetchMarketData, 5 * 60 * 1000);
         });
     </script>
 </body>
