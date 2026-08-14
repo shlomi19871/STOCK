@@ -105,7 +105,10 @@ function measureMarketSetWidth(track) {
     if (half <= 0) return 0;
     // המרחק בין תחילת הפריט הראשון לתחילת הפריט המקביל לו בעותק השני
     // הוא בדיוק הרוחב של "סט" אחד (כולל כל המרווחים) - כך שהלולאה תמיד תהיה חלקה.
-    return track.children[half].offsetLeft - track.children[0].offsetLeft;
+    // שימוש ב-Math.abs: בעמוד RTL (כמו כאן) סדר ה-offsetLeft הפוך (הפריט הראשון
+    // מוצג מימין ולכן offsetLeft שלו גדול יותר) - בלי abs היינו מקבלים מספר שלילי
+    // והלולאה כלל לא הייתה מתחילה לזוז.
+    return Math.abs(track.children[half].offsetLeft - track.children[0].offsetLeft);
 }
 
 function initMarketMarquee() {
@@ -216,6 +219,14 @@ async function fetchMarketData() {
     }
 }
 
+// טעינה ראשונית ועדכון אוטומטי של המדדים.
+// חשוב: זה רשום כאן, מוקדם בקובץ ובנפרד מ-Firebase, כדי שסרגל המדדים תמיד יעבוד
+// גם אם משהו בהמשך הקובץ (למשל טעינת Firebase) נכשל או נזרק עליו שגיאה.
+window.addEventListener('DOMContentLoaded', () => {
+    fetchMarketData();
+    setInterval(fetchMarketData, 5 * 60 * 1000);
+});
+
 async function sendTelegramNotification(text, phone, email, context) {
     if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('הכנס_כאן')) return;
     const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה'
@@ -235,15 +246,24 @@ async function sendTelegramNotification(text, phone, email, context) {
 }
 
 // אתחול Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+// עטוף ב-try/catch: אם ה-SDK של Firebase לא נטען מסיבה כלשהי (למשל חוסם פרסומות,
+// בעיית רשת רגעית או תוסף דפדפן), שגיאה כאן לא תעצור את שאר הקוד בקובץ.
+let auth = null;
+let db = null;
+try {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+} catch (e) {
+    console.error('שגיאה באתחול Firebase - התחברות ושמירה בענן לא יהיו זמינות:', e);
+}
 
 let portfolio = [];
 let myChart = null;
 let currentUser = null;
 
 // האזנה לשינוי מצב משתמש
+if (auth) {
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         const userDoc = await db.collection('users').doc(user.uid).get();
@@ -272,6 +292,7 @@ auth.onAuthStateChanged(async (user) => {
         renderTable();
     }
 });
+}
 
 // הרשמת משתמש חדש
 async function register() {
@@ -1105,9 +1126,3 @@ function updateChart() {
         });
     }
 }
-
-// טעינה ראשונית ועדכון אוטומטי של המדדים
-window.addEventListener('DOMContentLoaded', () => {
-    fetchMarketData();
-    setInterval(fetchMarketData, 5 * 60 * 1000);
-});
