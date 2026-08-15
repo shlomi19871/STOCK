@@ -111,6 +111,19 @@ function measureMarketSetWidth(track) {
     return Math.abs(track.children[half].offsetLeft - track.children[0].offsetLeft);
 }
 
+function isMobileViewport() {
+    return window.matchMedia('(max-width: 800px)').matches;
+}
+
+function getMarqueeSpeed() {
+    // התאמה: קצת יותר איטי בנייד (מסך צר, קל יותר לקרוא), ומהיר יותר במחשב.
+    const base = isMobileViewport() ? 22 : 32;
+    // מכבדים את הגדרת "הפחתת תנועה" של המשתמש - לא מכבים לגמרי (זה יגרום לתקיעות
+    // מוחלטת בהרבה מכשירים ניידים שבהם ההגדרה הזו פעילה כברירת מחדל), אלא מאטים משמעותית.
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return reduced ? base * 0.35 : base;
+}
+
 function initMarketMarquee() {
     const grid = document.getElementById('marketGrid');
     const track = grid ? grid.querySelector('.market-track') : null;
@@ -119,28 +132,30 @@ function initMarketMarquee() {
     marketMarquee.setWidth = measureMarketSetWidth(track);
     if (marketMarquee.setWidth <= 0) return;
 
-    // אם התנועה מכובה על ידי המשתמש (הגדרת נגישות), משאירים את הסרגל סטטי.
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        track.style.transform = 'translateX(0)';
-        return;
-    }
-
     if (!marketMarquee.started) {
         marketMarquee.started = true;
-        grid.addEventListener('mouseenter', () => { marketMarquee.paused = true; });
-        grid.addEventListener('mouseleave', () => { marketMarquee.paused = false; });
-        window.addEventListener('resize', () => {
+
+        // עצירה בהעברת עכבר - רק במכשירים עם עכבר אמיתי (pointer: fine + hover: hover).
+        // בנייד, מגע (touch) לפעמים מדמה "mouseenter" בלי "mouseleave" מתאים, ואז
+        // הסרגל היה נתקע לצמיתות במצב "מושהה" - לכן לא מצמידים את ההתנהגות הזו למגע כלל.
+        if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            grid.addEventListener('mouseenter', () => { marketMarquee.paused = true; });
+            grid.addEventListener('mouseleave', () => { marketMarquee.paused = false; });
+        }
+
+        const handleViewportChange = () => {
             const newWidth = measureMarketSetWidth(track);
             if (newWidth > 0) {
                 marketMarquee.offset = marketMarquee.offset % newWidth;
                 marketMarquee.setWidth = newWidth;
             }
-        });
+        };
+        window.addEventListener('resize', handleViewportChange);
+        window.addEventListener('orientationchange', handleViewportChange);
     }
 
     if (marketMarquee.rafId) cancelAnimationFrame(marketMarquee.rafId);
 
-    const PIXELS_PER_SECOND = 32;
     let lastTs = null;
 
     function step(ts) {
@@ -149,7 +164,7 @@ function initMarketMarquee() {
         lastTs = ts;
 
         if (!marketMarquee.paused && marketMarquee.setWidth > 0) {
-            marketMarquee.offset += PIXELS_PER_SECOND * deltaSeconds;
+            marketMarquee.offset += getMarqueeSpeed() * deltaSeconds;
             // ברגע שריבוע שלם "נכנס" משמאל, מאפסים בצורה חלקה - כך שהוא בעצם "יוצא" מימין מחדש (לולאה אינסופית אמיתית).
             if (marketMarquee.offset >= marketMarquee.setWidth) {
                 marketMarquee.offset -= marketMarquee.setWidth;
@@ -1126,4 +1141,3 @@ function updateChart() {
         });
     }
 }
-
