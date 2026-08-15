@@ -65,16 +65,22 @@ header p { font-size: 1.3rem; color: #c9d1d9; max-width: 650px; margin: 0 auto; 
     overflow: hidden; position: relative; width: 100%;
     -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 5%, #000 95%, transparent 100%);
     mask-image: linear-gradient(to left, transparent 0%, #000 5%, #000 95%, transparent 100%);
+    /* חשוב: כשההורה RTL, דפדפנים מיישרים תוכן "גולש" (רוחב גדול מהמיכל) לימין,
+       בלי רזרבה מימין - זו הייתה הסיבה שהריבועים "נעלמו" ולא חזרו. LTR כאן פותר את זה. */
+    direction: ltr;
 }
 .market-track {
     display: flex; gap: 12px; width: max-content;
     will-change: transform;
 }
+
+
 .market-card {
     background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 12px;
     padding: 12px; display: flex; flex-direction: column; justify-content: space-between;
     transition: transform 0.2s ease, border-color 0.2s ease;
     flex: 0 0 150px; width: 150px;
+    direction: rtl; /* שומר על סדר תצוגה עברי תקין בתוך כל כרטיס בודד */
 }
 .market-card:hover { transform: translateY(-2px); border-color: #ffc107; }
 .market-card-title { font-size: 0.9rem; font-weight: 700; color: #f0f6fc; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
@@ -237,7 +243,8 @@ input, select, textarea { max-width: 100%; }
 
 @media (max-width: 800px) {
     .market-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-    .market-card { padding: 10px; }
+    .market-track { gap: 8px; }
+    .market-card { padding: 10px; flex: 0 0 120px; width: 120px; }
     .market-card-price { font-size: 0.95rem; }
     .form-grid { grid-template-columns: 1fr; }
     .input-group.full-width, .btn-add { grid-column: span 1; }
