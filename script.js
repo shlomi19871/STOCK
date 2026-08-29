@@ -240,12 +240,15 @@ async function fetchMarketData() {
 window.addEventListener('DOMContentLoaded', () => {
     fetchMarketData();
     setInterval(fetchMarketData, 5 * 60 * 1000);
+    updateMovingAverageHeaderLabel();
+    applyColumnOrder();
 });
 
 async function sendTelegramNotification(text, phone, email, context) {
     if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('הכנס_כאן')) return;
     const contextLabel = context === 'subscribe' ? '💳 בקשת מנוי חדשה'
         : context === 'register' ? '🆕 נרשם חדש באתר'
+        : context === 'guestLimit' ? '🔔 בקשת הפעלת חשבון (מגבלת אורח)'
         : '📩 הודעה חדשה מהאתר';
     const phoneLine = phone ? `📞 טלפון: ${phone}\n` : '';
     const message = `${contextLabel}\n\n${phoneLine}✉️ אימייל: ${email}\n\n${text}`;
@@ -276,6 +279,8 @@ try {
 let portfolio = [];
 let myChart = null;
 let currentUser = null;
+// מונה הוספות אורח - משתנה בזיכרון בלבד (לא נשמר באחסון מקומי), כך שהוא מתאפס אוטומטית ברענון הדף
+let guestSessionAddCount = 0;
 
 // האזנה לשינוי מצב משתמש
 if (auth) {
@@ -293,6 +298,7 @@ auth.onAuthStateChanged(async (user) => {
 
             trackVisit(true);
             loadCloudPortfolio();
+            loadColumnOrderFromCloud();
         } else {
             alert("החשבון שלך ממתין לאישור מנהל המערכת.");
             auth.signOut();
@@ -446,6 +452,10 @@ setInterval(async () => {
         stock.riskColor = result.riskColor;
         stock.distanceFromHigh = result.distanceFromHigh;
         stock.riskChecked = true;
+
+        const ext = await fetchExtendedMetrics(stock.symbol, stock.currentPrice);
+        Object.assign(stock, ext);
+        stock.extChecked = true;
     }
     renderTable();
     if (currentUser) await saveCloudPortfolio();
@@ -461,6 +471,9 @@ function openContactModal(context) {
     if (context === 'subscribe') {
         title.innerHTML = '<i class="fa-solid fa-crown"></i> בקשת הפעלת מנוי';
         textarea.value = 'שלום, אני מעוניין/ת להפעיל מנוי לתיק ההתנגשות. אשמח לפרטי תשלום.';
+    } else if (context === 'guestLimit') {
+        title.innerHTML = '<i class="fa-solid fa-user-plus"></i> בקשת הפעלת חשבון';
+        textarea.value = 'שלום, ניצלתי את מגבלת ההוספות כאורח ואשמח שתאשרו לי חשבון כדי להמשיך לעקוב אחרי התיק שלי.';
     } else {
         title.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שליחת הודעה למנהל';
         textarea.value = '';
@@ -601,9 +614,28 @@ const TABLE_COLUMNS = [
     { id: 'profitPercent', label: 'רווח / הפסד (%)' },
     { id: 'risk', label: 'מדד סיכון' },
     { id: 'distanceHigh', label: 'מרחק משיא' },
+    { id: 'openPrice', label: 'מחיר פתיחה' },
+    { id: 'prevClose', label: 'מחיר סגירה קודם' },
+    { id: 'dailyRange', label: 'טווח יומי' },
+    { id: 'bidPrice', label: 'ביקוש' },
+    { id: 'askPrice', label: 'היצע' },
+    { id: 'spread', label: 'מרווח (Spread)' },
+    { id: 'preMarket', label: 'טרום-מסחר' },
+    { id: 'postMarket', label: 'טרום-מאוחר' },
+    { id: 'dailyChangeDollar', label: 'שינוי יומי ב-$' },
+    { id: 'dailyChangePercent', label: 'שינוי יומי ב-%' },
+    { id: 'earningsDate', label: 'מועדי דוחות כספיים' },
+    { id: 'peRatio', label: 'מכפיל רווח' },
+    { id: 'marketCap', label: 'שווי שוק' },
+    { id: 'dividendYield', label: 'תשואת דיבידנד' },
+    { id: 'movingAverage', label: 'ממוצע נע', hasSubControl: true },
+    { id: 'rsi', label: 'מדד העוצמה היחסית' },
     { id: 'action', label: 'מחיקה' },
     { id: 'news', label: 'חדשות' }
 ];
+
+// ערכי ממוצע נע אפשריים לבחירה (עמודת "ממוצע נע")
+const MOVING_AVERAGE_PRESETS = [10, 20, 50, 100, 150, 200];
 
 function getColumnPrefs() {
     try {
@@ -611,24 +643,191 @@ function getColumnPrefs() {
     } catch(e) { return {}; }
 }
 
+// ===== סדר עמודות בטבלה - נשמר לכל משתמש בנפרד (בענן בזמן התחברות, ובאחסון מקומי לאורח) =====
+function getColumnOrder() {
+    let order = [];
+    try {
+        order = JSON.parse(localStorage.getItem('tableColumnOrder') || '[]');
+    } catch (e) { order = []; }
+    if (!Array.isArray(order)) order = [];
+
+    // מוודאים שכל העמודות הקיימות מופיעות (כולל עמודות חדשות שנוספו ולא נשמרו עדיין בהעדפה)
+    const knownIds = TABLE_COLUMNS.map(c => c.id);
+    order = order.filter(id => knownIds.includes(id));
+    knownIds.forEach(id => { if (!order.includes(id)) order.push(id); });
+    return order;
+}
+
+function saveColumnOrder(order) {
+    localStorage.setItem('tableColumnOrder', JSON.stringify(order));
+    if (currentUser && db) {
+        db.collection('users').doc(currentUser.uid).set({ columnOrder: order }, { merge: true }).catch(() => {});
+    }
+}
+
+async function loadColumnOrderFromCloud() {
+    if (!currentUser || !db) return;
+    try {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        const data = doc.exists ? doc.data() : {};
+        if (Array.isArray(data.columnOrder) && data.columnOrder.length) {
+            localStorage.setItem('tableColumnOrder', JSON.stringify(data.columnOrder));
+        }
+        if (data.columnPrefs && typeof data.columnPrefs === 'object') {
+            localStorage.setItem('tableColumnPrefs', JSON.stringify(data.columnPrefs));
+        }
+        if (data.maPeriod) {
+            localStorage.setItem('movingAveragePeriod', String(data.maPeriod));
+        }
+    } catch (e) {
+        console.error('שגיאה בטעינת העדפות עמודות מהענן:', e);
+    }
+    populateColumnModal();
+    applyColumnOrder();
+    applyColumnVisibility();
+    updateMovingAverageHeaderLabel();
+}
+
+// מסדר מחדש את התאים (th או td) של שורה נתונה לפי סדר עמודות נתון, על בסיס data-col
+function reorderRowByColumns(rowEl, order) {
+    if (!rowEl) return;
+    order.forEach(colId => {
+        const cell = rowEl.querySelector(`:scope > [data-col="${colId}"]`);
+        if (cell) rowEl.appendChild(cell);
+    });
+}
+
+function applyColumnOrder() {
+    const order = getColumnOrder();
+    const headerRow = document.querySelector('#portfolioTable thead tr');
+    reorderRowByColumns(headerRow, order);
+    document.querySelectorAll('#portfolioTable tbody tr').forEach(row => reorderRowByColumns(row, order));
+}
+
+// ===== בחירת תקופת ממוצע נע (10/20/50/100/150/200), נשמרת לכל משתמש =====
+function getMovingAveragePeriod() {
+    const stored = parseInt(localStorage.getItem('movingAveragePeriod') || '50');
+    return MOVING_AVERAGE_PRESETS.includes(stored) ? stored : 50;
+}
+
+function setMovingAveragePeriod(period) {
+    const numPeriod = parseInt(period);
+    if (!MOVING_AVERAGE_PRESETS.includes(numPeriod)) return;
+    localStorage.setItem('movingAveragePeriod', String(numPeriod));
+    if (currentUser && db) {
+        db.collection('users').doc(currentUser.uid).set({ maPeriod: numPeriod }, { merge: true }).catch(() => {});
+    }
+    updateMovingAverageHeaderLabel();
+    renderTable();
+}
+
+function updateMovingAverageHeaderLabel() {
+    const sub = document.getElementById('movingAverageHeaderSub');
+    if (sub) sub.textContent = `ממוצע נע ${getMovingAveragePeriod()}`;
+}
+
 function populateColumnModal() {
     const list = document.getElementById('columnCheckboxList');
     const prefs = getColumnPrefs();
-    list.innerHTML = TABLE_COLUMNS.map(col => {
+    const order = getColumnOrder();
+    const colsById = Object.fromEntries(TABLE_COLUMNS.map(c => [c.id, c]));
+    const maPeriod = getMovingAveragePeriod();
+
+    list.innerHTML = order.map((colId) => {
+        const col = colsById[colId];
+        if (!col) return '';
         const checked = prefs[col.id] === false ? '' : 'checked';
+
+        const maControl = col.hasSubControl ? `
+            <select class="ma-period-select" onchange="setMovingAveragePeriod(this.value)" title="בחר תקופת ממוצע נע">
+                ${MOVING_AVERAGE_PRESETS.map(p => `<option value="${p}" ${p === maPeriod ? 'selected' : ''}>${p} ימים</option>`).join('')}
+            </select>
+        ` : '';
+
         return `
-            <div class="column-checkbox-row">
-                <label for="colcheck-${col.id}" style="margin:0; color:#f0f6fc; cursor:pointer;">${col.label}</label>
-                <input type="checkbox" id="colcheck-${col.id}" ${checked} onchange="toggleColumn('${col.id}', this.checked)">
+            <div class="column-checkbox-row" data-col-id="${col.id}">
+                <div class="column-right-group">
+                    <input type="checkbox" id="colcheck-${col.id}" ${checked} onchange="toggleColumn('${col.id}', this.checked)">
+                    <span class="column-drag-handle" title="גרור לשינוי הסדר"><i class="fa-solid fa-bars"></i></span>
+                </div>
+                <label for="colcheck-${col.id}" style="margin:0; color:#f0f6fc; cursor:pointer; flex:1;">${col.label}</label>
+                ${maControl}
             </div>
         `;
     }).join('');
+
+    initColumnDragAndDrop();
+}
+
+// ===== גרירה ושחרור (drag & drop) לשינוי סדר עמודות - באמצעות עכבר/מגע דרך ה"3 פסים" =====
+const columnDragState = { active: false, draggedId: null, currentTargetId: null };
+
+function initColumnDragAndDrop() {
+    const list = document.getElementById('columnCheckboxList');
+    if (!list || list.dataset.dndInit) return;
+    list.dataset.dndInit = 'true';
+
+    list.addEventListener('pointerdown', (e) => {
+        const handle = e.target.closest('.column-drag-handle');
+        if (!handle) return;
+        const row = handle.closest('.column-checkbox-row');
+        if (!row) return;
+        e.preventDefault();
+        columnDragState.active = true;
+        columnDragState.draggedId = row.dataset.colId;
+        columnDragState.currentTargetId = row.dataset.colId;
+        row.classList.add('dragging');
+        try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    list.addEventListener('pointermove', (e) => {
+        if (!columnDragState.active) return;
+        const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+        const row = elBelow ? elBelow.closest('.column-checkbox-row') : null;
+        list.querySelectorAll('.column-checkbox-row').forEach(r => r.classList.remove('drag-over'));
+        if (row && row.dataset.colId !== columnDragState.draggedId) {
+            row.classList.add('drag-over');
+            columnDragState.currentTargetId = row.dataset.colId;
+        }
+    });
+
+    const finishColumnDrag = () => {
+        if (!columnDragState.active) return;
+        columnDragState.active = false;
+        list.querySelectorAll('.column-checkbox-row').forEach(r => {
+            r.classList.remove('dragging');
+            r.classList.remove('drag-over');
+        });
+
+        const draggedId = columnDragState.draggedId;
+        const targetId = columnDragState.currentTargetId;
+        if (draggedId && targetId && draggedId !== targetId) {
+            const order = getColumnOrder();
+            const fromIdx = order.indexOf(draggedId);
+            const toIdx = order.indexOf(targetId);
+            if (fromIdx !== -1 && toIdx !== -1) {
+                order.splice(fromIdx, 1);
+                order.splice(toIdx, 0, draggedId);
+                saveColumnOrder(order);
+                populateColumnModal();
+                applyColumnOrder();
+            }
+        }
+        columnDragState.draggedId = null;
+        columnDragState.currentTargetId = null;
+    };
+
+    list.addEventListener('pointerup', finishColumnDrag);
+    list.addEventListener('pointercancel', finishColumnDrag);
 }
 
 function toggleColumn(colId, isChecked) {
     const prefs = getColumnPrefs();
     prefs[colId] = isChecked;
     localStorage.setItem('tableColumnPrefs', JSON.stringify(prefs));
+    if (currentUser && db) {
+        db.collection('users').doc(currentUser.uid).set({ columnPrefs: prefs }, { merge: true }).catch(() => {});
+    }
     applyColumnVisibility();
 }
 
@@ -644,6 +843,7 @@ function applyColumnVisibility() {
 
 function openColumnOptions() {
     populateColumnModal();
+    applyColumnOrder();
     document.getElementById('columnModalOverlay').style.display = 'flex';
 }
 function closeColumnOptions() {
@@ -681,14 +881,54 @@ function switchForecastTab(tab) {
     updateForecast();
 }
 
+// ===== מצב יעד רווח: לפי אחוזים (ברירת מחדל) או לפי מחיר יעד ($) =====
+let forecastProfitMode = 'percent';
+
+function setForecastProfitMode(mode) {
+    forecastProfitMode = mode;
+    document.getElementById('profitModeBtnPercent').classList.toggle('active', mode === 'percent');
+    document.getElementById('profitModeBtnDollar').classList.toggle('active', mode === 'dollar');
+    document.getElementById('forecastPercentGroup').style.display = mode === 'percent' ? 'flex' : 'none';
+    document.getElementById('forecastTargetPriceGroup').style.display = mode === 'dollar' ? 'flex' : 'none';
+    updateForecast();
+}
+
 function updateForecast() {
     const select = document.getElementById('forecastStock');
     const idx = parseInt(select.value);
     const stock = portfolio[idx];
     if (!stock) return;
 
-    const targetPercent = parseFloat(document.getElementById('forecastPercent').value);
-    const targetPrice = stock.currentPrice * (1 + targetPercent / 100);
+    let targetPrice;
+    if (forecastProfitMode === 'dollar') {
+        const targetPriceInput = parseFloat(document.getElementById('forecastTargetPrice').value);
+        const profitResultDollarMode = document.getElementById('forecastProfitResult');
+        if (isNaN(targetPriceInput) || targetPriceInput <= 0) {
+            profitResultDollarMode.value = '';
+        } else {
+            targetPrice = targetPriceInput;
+        }
+    } else {
+        const targetPercent = parseFloat(document.getElementById('forecastPercent').value);
+        targetPrice = stock.currentPrice * (1 + targetPercent / 100);
+    }
+
+    if (targetPrice === undefined || isNaN(targetPrice)) {
+        const stopPriceInputEarly = document.getElementById('forecastStopPrice');
+        const stopResultEarly = document.getElementById('forecastStopResult');
+        const stopPriceEarly = parseFloat(stopPriceInputEarly.value);
+        if (isNaN(stopPriceEarly) || stopPriceEarly <= 0) {
+            stopResultEarly.value = '';
+            return;
+        }
+        const stopDollarEarly = (stopPriceEarly - stock.buyPrice) * stock.shares;
+        const stopPercentEarly = ((stopPriceEarly - stock.buyPrice) / stock.buyPrice) * 100;
+        const sSignEarly = stopDollarEarly >= 0 ? '+' : '';
+        stopResultEarly.value = `${sSignEarly}$${Math.abs(stopDollarEarly).toFixed(2)}  (${sSignEarly}${Math.abs(stopPercentEarly).toFixed(2)}%)`;
+        stopResultEarly.style.color = stopDollarEarly >= 0 ? '#00ff87' : '#ff5555';
+        return;
+    }
+
     const targetValue = stock.shares * targetPrice;
     const targetProfitDollar = targetValue - stock.totalCost;
     const targetProfitPercent = (targetProfitDollar / stock.totalCost) * 100;
@@ -867,14 +1107,13 @@ function switchTab(tabName) {
     }
 }
 
-const GUEST_ADD_LIMIT = 3;
+const GUEST_ADD_LIMIT = 2;
 
 async function addStock() {
-    let guestCount = parseInt(localStorage.getItem('guestAddCount') || '0');
-
-    if (!currentUser && guestCount >= GUEST_ADD_LIMIT) {
-        alert("ניצלת את 3 ההוספות החינמיות שלך. יש להתחבר לחשבון (וקבלת אישור מנהל) כדי להמשיך ולשמור את התיק שלך לצמיתות.");
+    if (!currentUser && guestSessionAddCount >= GUEST_ADD_LIMIT) {
+        alert(`ניצלת את ${GUEST_ADD_LIMIT} ההוספות החינמיות שלך כאורח בביקור הנוכחי. יש להתחבר לחשבון כדי להמשיך, או לשלוח בקשה למנהל להפעלת חשבון.`);
         switchTab('login');
+        openContactModal('guestLimit');
         return;
     }
 
@@ -957,8 +1196,7 @@ async function addStock() {
             if (currentUser) {
                 await saveCloudPortfolio();
             } else {
-                guestCount++;
-                localStorage.setItem('guestAddCount', guestCount);
+                guestSessionAddCount++;
             }
 
             document.getElementById('symbol').value = '';
@@ -995,13 +1233,12 @@ async function addStock() {
         if (currentUser) {
             await saveCloudPortfolio();
         } else {
-            guestCount++;
-            localStorage.setItem('guestAddCount', guestCount);
-            const remaining = GUEST_ADD_LIMIT - guestCount;
+            guestSessionAddCount++;
+            const remaining = GUEST_ADD_LIMIT - guestSessionAddCount;
             if (remaining > 0) {
-                setTimeout(() => alert(`המניה נוספה! נשארו לך ${remaining} הוספות חינמיות לפני שתצטרך להתחבר.`), 100);
+                setTimeout(() => alert(`המניה נוספה! נשארו לך ${remaining} הוספות חינמיות בביקור הנוכחי לפני שתצטרך להתחבר.`), 100);
             } else {
-                setTimeout(() => alert("זו הייתה ההוספה החינמית האחרונה שלך. התחבר עכשיו כדי להמשיך ולשמור את התיק שלך."), 100);
+                setTimeout(() => alert("זו הייתה ההוספה החינמית האחרונה שלך בביקור הנוכחי. התחבר עכשיו כדי להמשיך ולשמור את התיק שלך, או שלח בקשה למנהל."), 100);
             }
         }
 
@@ -1029,10 +1266,11 @@ function renderTable() {
     tbody.innerHTML = ''; 
 
     if (portfolio.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${TABLE_COLUMNS.length}" style="text-align:center; padding: 20px; direction: rtl;">התיק ריק. הוסף מניות מהטופס למעלה כדי להתחיל!</td></tr>`;
         updateChart();
         updateForecastStockList();
         applyColumnVisibility();
+        applyColumnOrder();
         return;
     }
 
@@ -1050,6 +1288,26 @@ function renderTable() {
         const distanceText = hasDistance ? `${stock.distanceFromHigh >= 0 ? '-' : '+'}${Math.abs(stock.distanceFromHigh).toFixed(1)}%` : '—';
         const distanceColor = hasDistance ? (stock.distanceFromHigh <= 5 ? '#00ff87' : (stock.distanceFromHigh <= 20 ? '#ffc107' : '#ff5555')) : '#8b949e';
 
+        // ===== נתוני עמודות מורחבות (פתיחה/סגירה קודמת/טווח/שינוי יומי/יסודות) =====
+        const hasOpen = typeof stock.openPrice === 'number';
+        const hasPrevClose = typeof stock.prevClose === 'number';
+        const hasRange = typeof stock.dayHigh === 'number' && typeof stock.dayLow === 'number';
+        const dailyRangeText = hasRange ? `${stock.dayLow.toFixed(2)} - ${stock.dayHigh.toFixed(2)}` : '—';
+        const hasDayChangeDollar = typeof stock.dayChangeDollar === 'number';
+        const hasDayChangePercent = typeof stock.dayChangePercent === 'number';
+        const dayChangeSign = hasDayChangeDollar && stock.dayChangeDollar >= 0 ? '+' : '';
+        const dayChangeColorD = hasDayChangeDollar ? (stock.dayChangeDollar >= 0 ? '#00ff87' : '#ff5555') : '#8b949e';
+        const dayChangeColorP = hasDayChangePercent ? (stock.dayChangePercent >= 0 ? '#00ff87' : '#ff5555') : '#8b949e';
+        const peText = typeof stock.peRatio === 'number' ? stock.peRatio.toFixed(2) : 'לא זמין';
+        const marketCapText = typeof stock.marketCap === 'number' ? formatMarketCap(stock.marketCap) : 'לא זמין';
+        const dividendYieldText = typeof stock.dividendYield === 'number' ? `${stock.dividendYield.toFixed(2)}%` : 'לא זמין';
+        const earningsDateText = stock.earningsDate || 'לא זמין';
+        const maPeriod = getMovingAveragePeriod();
+        // הערה: חישוב ממוצע נע ומדד העוצמה היחסית (RSI) דורשים היסטוריית מחירים (candles),
+        // שאינה נגישה בתוכנית ה-Finnhub החינמית הנוכחית - לכן מוצג "לא זמין" עד לחיבור מקור נתונים תומך.
+        const movingAverageText = `לא זמין (${maPeriod} ימים)`;
+        const rsiText = 'לא זמין';
+
         const cells = [
             ['symbol', stock.symbol || '', 'font-weight:bold; font-size: 1.1rem;'],
             ['name', stock.name || '', '', 'rtl'],
@@ -1061,7 +1319,23 @@ function renderTable() {
             ['profitDollar', `${sign}$${Math.abs(stock.profitDollar).toFixed(2)}`, '', 'ltr', profitClass],
             ['profitPercent', `${sign}${Math.abs(stock.profitPercent).toFixed(2)}%`, '', 'ltr', profitClass],
             ['risk', riskLabel, `font-weight:bold; color: ${riskColor};`],
-            ['distanceHigh', distanceText, `font-weight:bold; color: ${distanceColor};`, 'rtl']
+            ['distanceHigh', distanceText, `font-weight:bold; color: ${distanceColor};`, 'rtl'],
+            ['openPrice', hasOpen ? `$${stock.openPrice.toFixed(2)}` : 'לא זמין'],
+            ['prevClose', hasPrevClose ? `$${stock.prevClose.toFixed(2)}` : 'לא זמין'],
+            ['dailyRange', dailyRangeText],
+            ['bidPrice', 'לא זמין', 'color:#8b949e;'],
+            ['askPrice', 'לא זמין', 'color:#8b949e;'],
+            ['spread', 'לא זמין', 'color:#8b949e;'],
+            ['preMarket', 'לא זמין', 'color:#8b949e;'],
+            ['postMarket', 'לא זמין', 'color:#8b949e;'],
+            ['dailyChangeDollar', hasDayChangeDollar ? `${dayChangeSign}$${Math.abs(stock.dayChangeDollar).toFixed(2)}` : 'לא זמין', `font-weight:bold; color: ${dayChangeColorD};`, 'ltr'],
+            ['dailyChangePercent', hasDayChangePercent ? `${dayChangeSign}${Math.abs(stock.dayChangePercent).toFixed(2)}%` : 'לא זמין', `font-weight:bold; color: ${dayChangeColorP};`, 'ltr'],
+            ['earningsDate', earningsDateText, '', 'rtl'],
+            ['peRatio', peText],
+            ['marketCap', marketCapText],
+            ['dividendYield', dividendYieldText],
+            ['movingAverage', movingAverageText, 'color:#8b949e; font-size:0.85em;', 'rtl'],
+            ['rsi', rsiText, 'color:#8b949e;']
         ];
 
         cells.forEach(([col, value, style, dir, className]) => {
@@ -1108,7 +1382,95 @@ function renderTable() {
     updateChart();
     updateForecastStockList();
     applyColumnVisibility();
+    applyColumnOrder();
+    updateMovingAverageHeaderLabel();
     autoFillMissingRiskData();
+    autoFillMissingExtendedData();
+}
+
+function formatMarketCap(capInMillions) {
+    // Finnhub מחזיר שווי שוק ביחידות של מיליוני דולר
+    const value = capInMillions * 1_000_000;
+    if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+    return `$${value.toFixed(0)}`;
+}
+
+// ===== שליפת נתונים מורחבים לעמודות החדשות (פתיחה/סגירה קודמת/טווח/שינוי יומי/יסודות) =====
+// שימו לב: ביקוש/היצע/מרווח/טרום-מסחר/טרום-מאוחר/ממוצע נע/RSI דורשים גישה בתשלום
+// (bid/ask, extended-hours quotes, ו-candles) שאינה כלולה במפתח ה-Finnhub החינמי הנוכחי,
+// ולכן אינם נשלפים כאן ומוצגים כ"לא זמין" בטבלה.
+async function fetchExtendedMetrics(symbol, currentPrice, quoteData) {
+    const result = {
+        openPrice: null, prevClose: null, dayHigh: null, dayLow: null,
+        dayChangeDollar: null, dayChangePercent: null,
+        peRatio: null, marketCap: null, dividendYield: null, earningsDate: null
+    };
+
+    try {
+        const q = quoteData || await fetchFinnhubJson('quote', { symbol });
+        if (q) {
+            if (typeof q.o === 'number' && q.o > 0) result.openPrice = q.o;
+            if (typeof q.pc === 'number' && q.pc > 0) result.prevClose = q.pc;
+            if (typeof q.h === 'number') result.dayHigh = q.h;
+            if (typeof q.l === 'number') result.dayLow = q.l;
+            if (typeof q.d === 'number') result.dayChangeDollar = q.d;
+            if (typeof q.dp === 'number') result.dayChangePercent = q.dp;
+        }
+    } catch (e) {
+        console.error(`[fetchExtendedMetrics] שגיאה בשליפת ציטוט עבור ${symbol}:`, e);
+    }
+
+    try {
+        const metricData = await fetchFinnhubJson('stock/metric', { symbol, metric: 'all' });
+        const metric = metricData?.metric || {};
+        const pe = metric.peBasicExclExtraTTM ?? metric.peTTM ?? metric.peNormalizedAnnual;
+        if (typeof pe === 'number') result.peRatio = pe;
+        const divYield = metric.currentDividendYieldTTM ?? metric.dividendYieldIndicatedAnnual;
+        if (typeof divYield === 'number') result.dividendYield = divYield;
+    } catch (e) {
+        console.error(`[fetchExtendedMetrics] שגיאה בשליפת יסודות עבור ${symbol}:`, e);
+    }
+
+    try {
+        const profileData = await fetchFinnhubJson('stock/profile2', { symbol });
+        if (profileData && typeof profileData.marketCapitalization === 'number') {
+            result.marketCap = profileData.marketCapitalization;
+        }
+    } catch (e) {}
+
+    try {
+        const today = new Date();
+        const from = today.toISOString().slice(0, 10);
+        const future = new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000);
+        const to = future.toISOString().slice(0, 10);
+        const earningsData = await fetchFinnhubJson('calendar/earnings', { symbol, from, to });
+        const upcoming = earningsData?.earningsCalendar?.find(e => e.date);
+        if (upcoming) result.earningsDate = upcoming.date;
+    } catch (e) {
+        // חלק מהחשבונות החינמיים אינם כוללים גישה ללוח דוחות כספיים עתידי
+    }
+
+    return result;
+}
+
+let extendedAutoFillInProgress = false;
+async function autoFillMissingExtendedData() {
+    if (extendedAutoFillInProgress) return;
+    const missing = portfolio.filter(s => !s.extChecked);
+    if (missing.length === 0) return;
+
+    extendedAutoFillInProgress = true;
+    for (const stock of missing) {
+        const ext = await fetchExtendedMetrics(stock.symbol, stock.currentPrice);
+        Object.assign(stock, ext);
+        stock.extChecked = true;
+    }
+    extendedAutoFillInProgress = false;
+
+    renderTable();
+    if (currentUser) await saveCloudPortfolio();
 }
 
 function updateChart() {
