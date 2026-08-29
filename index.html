@@ -88,6 +88,22 @@
                         <th data-col="profitPercent">Profit / Loss (%)<span class="th-sub" dir="rtl">אחוזים</span></th>
                         <th data-col="risk" dir="rtl">Risk<span class="th-sub">מדד סיכון</span></th>
                         <th data-col="distanceHigh" dir="rtl">From High<span class="th-sub">מרחק משיא</span></th>
+                        <th data-col="openPrice" dir="rtl">Open<span class="th-sub">מחיר פתיחה</span></th>
+                        <th data-col="prevClose" dir="rtl">Prev Close<span class="th-sub">מחיר סגירה קודם</span></th>
+                        <th data-col="dailyRange" dir="rtl">Daily Range<span class="th-sub">טווח יומי</span></th>
+                        <th data-col="bidPrice" dir="rtl">Bid<span class="th-sub">ביקוש</span></th>
+                        <th data-col="askPrice" dir="rtl">Ask<span class="th-sub">היצע</span></th>
+                        <th data-col="spread" dir="rtl">Spread<span class="th-sub">מרווח</span></th>
+                        <th data-col="preMarket" dir="rtl">Pre-Market<span class="th-sub">טרום-מסחר</span></th>
+                        <th data-col="postMarket" dir="rtl">Post-Market<span class="th-sub">טרום-מאוחר</span></th>
+                        <th data-col="dailyChangeDollar" dir="rtl">Daily Chg ($)<span class="th-sub">שינוי יומי ב-$</span></th>
+                        <th data-col="dailyChangePercent" dir="rtl">Daily Chg (%)<span class="th-sub">שינוי יומי ב-%</span></th>
+                        <th data-col="earningsDate" dir="rtl">Earnings<span class="th-sub">מועד דוח כספי</span></th>
+                        <th data-col="peRatio" dir="rtl">P/E<span class="th-sub">מכפיל רווח</span></th>
+                        <th data-col="marketCap" dir="rtl">Market Cap<span class="th-sub">שווי שוק</span></th>
+                        <th data-col="dividendYield" dir="rtl">Dividend<span class="th-sub">תשואת דיבידנד</span></th>
+                        <th data-col="movingAverage" dir="rtl">Moving Avg<span class="th-sub" id="movingAverageHeaderSub">ממוצע נע</span></th>
+                        <th data-col="rsi" dir="rtl">RSI<span class="th-sub">מדד העוצמה היחסית</span></th>
                         <th data-col="action" dir="rtl">Action<span class="th-sub">פעולה</span></th>
                         <th data-col="news" dir="rtl">News<span class="th-sub">חדשות</span></th>
                     </tr>
@@ -115,8 +131,19 @@
 
                 <div id="forecastProfitPanel">
                     <div class="input-group">
+                        <label>אופן הגדרת היעד</label>
+                        <div class="profit-mode-toggle">
+                            <button type="button" class="profit-mode-btn active" id="profitModeBtnPercent" onclick="setForecastProfitMode('percent')">יעד באחוזים (%)</button>
+                            <button type="button" class="profit-mode-btn" id="profitModeBtnDollar" onclick="setForecastProfitMode('dollar')">יעד במחיר ($)</button>
+                        </div>
+                    </div>
+                    <div class="input-group" id="forecastPercentGroup">
                         <label for="forecastPercent">יעד רווח באחוזים (מהמחיר הנוכחי)</label>
                         <input type="number" id="forecastPercent" value="10" step="1" oninput="updateForecast()">
+                    </div>
+                    <div class="input-group" id="forecastTargetPriceGroup" style="display:none;">
+                        <label for="forecastTargetPrice">מחיר יעד ליחידה ($)</label>
+                        <input type="number" step="0.01" id="forecastTargetPrice" oninput="updateForecast()" placeholder="0.00">
                     </div>
                     <div class="input-group">
                         <label>רווח משוער בתרחיש זה</label>
