@@ -131,9 +131,34 @@ select:focus { outline: none; border-color: #ffc107; }
 .column-checkbox-list { display: flex; flex-direction: column; gap: 12px; max-height: 50vh; overflow-y: auto; margin-bottom: 10px; }
 .column-checkbox-row {
     display: flex; align-items: center; justify-content: space-between; background: rgba(13,17,23,0.5);
-    border: 1px solid #30363d; border-radius: 10px; padding: 10px 15px;
+    border: 1px solid #30363d; border-radius: 10px; padding: 10px 15px; gap: 10px; flex-wrap: wrap;
 }
-.column-checkbox-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ffc107; cursor: pointer; }
+.column-checkbox-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ffc107; cursor: pointer; flex-shrink: 0; }
+
+/* קבוצת ימין בשורת עמודה: תיבת סימון + ידית גרירה ("3 פסים") לשינוי סדר */
+.column-right-group { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.column-drag-handle {
+    color: #8b949e; font-size: 1.1rem; padding: 6px 8px; cursor: grab;
+    touch-action: none; user-select: none; border-radius: 6px; transition: color 0.2s ease, background 0.2s ease;
+}
+.column-drag-handle:hover { color: #ffc107; background: rgba(255, 193, 7, 0.1); }
+.column-drag-handle:active { cursor: grabbing; color: #ffc107; }
+.column-checkbox-row.dragging { opacity: 0.5; border-color: #ffc107; }
+.column-checkbox-row.drag-over { border-color: #ffc107; background: rgba(255, 193, 7, 0.08); }
+
+/* בורר תקופת ממוצע נע בתוך רשימת העמודות */
+.ma-period-select {
+    background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+    padding: 6px 8px; color: #fff; font-size: 0.85rem; flex-shrink: 0; cursor: pointer;
+}
+
+/* מתג בחירת אופן יעד רווח (אחוזים / מחיר) בחלון תחזית תשואה */
+.profit-mode-toggle { display: flex; gap: 8px; }
+.profit-mode-btn {
+    flex: 1; background: rgba(13,17,23,0.6); border: 1px solid #30363d; color: #8b949e;
+    padding: 9px 6px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.85rem; transition: all 0.2s ease;
+}
+.profit-mode-btn.active { color: #ffc107; border-color: #ffc107; background: rgba(255, 193, 7, 0.1); }
 
 /* שורה תחתונה: עוגה + תחזית */
 .bottom-row { display: flex; gap: 25px; justify-content: center; align-items: flex-start; flex-wrap: wrap; width: 100%; max-width: 1300px; margin: 0 auto; }
