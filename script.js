@@ -240,8 +240,12 @@ async function fetchMarketData() {
 window.addEventListener('DOMContentLoaded', () => {
     fetchMarketData();
     setInterval(fetchMarketData, 5 * 60 * 1000);
-    updateMovingAverageHeaderLabel();
     applyColumnOrder();
+    applyColumnVisibility();
+    switchInlineCalculator('risk');
+    document.getElementById('inlineRiskPanel')?.classList.remove('has-selection');
+    // מצב התחלתי: אזור הבחירה גלוי, גוף המחשבון ריק והחץ מצביע למעלה.
+    document.querySelector('.inline-calculators-box')?.classList.remove('calculator-minimized');
 });
 
 async function sendTelegramNotification(text, phone, email, context) {
@@ -281,6 +285,9 @@ let myChart = null;
 let currentUser = null;
 // מונה הוספות אורח - משתנה בזיכרון בלבד (לא נשמר באחסון מקומי), כך שהוא מתאפס אוטומטית ברענון הדף
 let guestSessionAddCount = 0;
+// שני חישובים לאורח בכל סשן דפדפן; המונה נשמר גם לאחר רענון.
+const GUEST_RISK_CALCULATOR_LIMIT = 2;
+let guestRiskCalculatorUseCount = Number(sessionStorage.getItem('guestRiskCalculatorUseCount') || 0);
 
 // האזנה לשינוי מצב משתמש
 if (auth) {
@@ -289,6 +296,7 @@ auth.onAuthStateChanged(async (user) => {
         const userDoc = await db.collection('users').doc(user.uid).get();
         if (userDoc.exists && userDoc.data().approved) {
             currentUser = user;
+            syncRiskCalculatorAccess();
             document.getElementById('currentUsername').innerText = user.email;
             document.getElementById('logoutBtn').style.display = 'block';
 
@@ -305,6 +313,7 @@ auth.onAuthStateChanged(async (user) => {
         }
     } else {
         currentUser = null;
+        syncRiskCalculatorAccess();
         document.getElementById('currentUsername').innerText = 'אורח (לא מחובר)';
         document.getElementById('logoutBtn').style.display = 'none';
         document.getElementById('adminTabBtn').style.display = 'none';
@@ -605,37 +614,43 @@ async function deleteMessage(id) {
 const TABLE_COLUMNS = [
     { id: 'symbol', label: 'סימבול' },
     { id: 'name', label: 'שם המניה' },
-    { id: 'shares', label: 'כמות יחידות' },
+    { id: 'shares', label: 'כמות' },
     { id: 'buyPrice', label: 'שער כניסה' },
     { id: 'currentPrice', label: 'שער נוכחי' },
     { id: 'totalCost', label: 'עלות כוללת' },
     { id: 'currentValue', label: 'שווי נוכחי' },
     { id: 'profitDollar', label: 'רווח / הפסד ($)' },
-    { id: 'profitPercent', label: 'רווח / הפסד (%)' },
+    { id: 'profitPercent', label: 'אחוזים' },
     { id: 'risk', label: 'מדד סיכון' },
     { id: 'distanceHigh', label: 'מרחק משיא' },
     { id: 'openPrice', label: 'מחיר פתיחה' },
     { id: 'prevClose', label: 'מחיר סגירה קודם' },
     { id: 'dailyRange', label: 'טווח יומי' },
-    { id: 'bidPrice', label: 'ביקוש' },
-    { id: 'askPrice', label: 'היצע' },
-    { id: 'spread', label: 'מרווח (Spread)' },
-    { id: 'preMarket', label: 'טרום-מסחר' },
-    { id: 'postMarket', label: 'טרום-מאוחר' },
     { id: 'dailyChangeDollar', label: 'שינוי יומי ב-$' },
     { id: 'dailyChangePercent', label: 'שינוי יומי ב-%' },
     { id: 'earningsDate', label: 'מועדי דוחות כספיים' },
     { id: 'peRatio', label: 'מכפיל רווח' },
     { id: 'marketCap', label: 'שווי שוק' },
     { id: 'dividendYield', label: 'תשואת דיבידנד' },
-    { id: 'movingAverage', label: 'ממוצע נע', hasSubControl: true },
-    { id: 'rsi', label: 'מדד העוצמה היחסית' },
-    { id: 'action', label: 'מחיקה' },
+    { id: 'action', label: 'פעולה' },
     { id: 'news', label: 'חדשות' }
 ];
 
-// ערכי ממוצע נע אפשריים לבחירה (עמודת "ממוצע נע")
-const MOVING_AVERAGE_PRESETS = [10, 20, 50, 100, 150, 200];
+// ברירת מחדל למבקרים חדשים: מציגים רק את העמודות המרכזיות שביקש המשתמש.
+// העדפות קיימות של משתמשים נשמרות ואינן נדרסות.
+const DEFAULT_VISIBLE_COLUMNS = [
+    'symbol', 'name', 'shares', 'buyPrice', 'currentPrice', 'totalCost',
+    'currentValue', 'profitDollar', 'profitPercent', 'earningsDate', 'action', 'news'
+];
+// Migration: enforce the agreed default column set once for existing browsers too.
+// After migration, users can customize columns and their choices are preserved.
+if (localStorage.getItem('tableColumnPrefsVersion') !== '2') {
+    const initialColumnPrefs = Object.fromEntries(
+        TABLE_COLUMNS.map(col => [col.id, DEFAULT_VISIBLE_COLUMNS.includes(col.id)])
+    );
+    localStorage.setItem('tableColumnPrefs', JSON.stringify(initialColumnPrefs));
+    localStorage.setItem('tableColumnPrefsVersion', '2');
+}
 
 function getColumnPrefs() {
     try {
@@ -673,11 +688,8 @@ async function loadColumnOrderFromCloud() {
         if (Array.isArray(data.columnOrder) && data.columnOrder.length) {
             localStorage.setItem('tableColumnOrder', JSON.stringify(data.columnOrder));
         }
-        if (data.columnPrefs && typeof data.columnPrefs === 'object') {
+        if (data.columnPrefs && typeof data.columnPrefs === 'object' && data.columnPrefsVersion >= 2) {
             localStorage.setItem('tableColumnPrefs', JSON.stringify(data.columnPrefs));
-        }
-        if (data.maPeriod) {
-            localStorage.setItem('movingAveragePeriod', String(data.maPeriod));
         }
     } catch (e) {
         console.error('שגיאה בטעינת העדפות עמודות מהענן:', e);
@@ -685,7 +697,6 @@ async function loadColumnOrderFromCloud() {
     populateColumnModal();
     applyColumnOrder();
     applyColumnVisibility();
-    updateMovingAverageHeaderLabel();
 }
 
 // מסדר מחדש את התאים (th או td) של שורה נתונה לפי סדר עמודות נתון, על בסיס data-col
@@ -704,45 +715,16 @@ function applyColumnOrder() {
     document.querySelectorAll('#portfolioTable tbody tr').forEach(row => reorderRowByColumns(row, order));
 }
 
-// ===== בחירת תקופת ממוצע נע (10/20/50/100/150/200), נשמרת לכל משתמש =====
-function getMovingAveragePeriod() {
-    const stored = parseInt(localStorage.getItem('movingAveragePeriod') || '50');
-    return MOVING_AVERAGE_PRESETS.includes(stored) ? stored : 50;
-}
-
-function setMovingAveragePeriod(period) {
-    const numPeriod = parseInt(period);
-    if (!MOVING_AVERAGE_PRESETS.includes(numPeriod)) return;
-    localStorage.setItem('movingAveragePeriod', String(numPeriod));
-    if (currentUser && db) {
-        db.collection('users').doc(currentUser.uid).set({ maPeriod: numPeriod }, { merge: true }).catch(() => {});
-    }
-    updateMovingAverageHeaderLabel();
-    renderTable();
-}
-
-function updateMovingAverageHeaderLabel() {
-    const sub = document.getElementById('movingAverageHeaderSub');
-    if (sub) sub.textContent = `ממוצע נע ${getMovingAveragePeriod()}`;
-}
-
 function populateColumnModal() {
     const list = document.getElementById('columnCheckboxList');
     const prefs = getColumnPrefs();
     const order = getColumnOrder();
     const colsById = Object.fromEntries(TABLE_COLUMNS.map(c => [c.id, c]));
-    const maPeriod = getMovingAveragePeriod();
 
     list.innerHTML = order.map((colId) => {
         const col = colsById[colId];
         if (!col) return '';
         const checked = prefs[col.id] === false ? '' : 'checked';
-
-        const maControl = col.hasSubControl ? `
-            <select class="ma-period-select" onchange="setMovingAveragePeriod(this.value)" title="בחר תקופת ממוצע נע">
-                ${MOVING_AVERAGE_PRESETS.map(p => `<option value="${p}" ${p === maPeriod ? 'selected' : ''}>${p} ימים</option>`).join('')}
-            </select>
-        ` : '';
 
         return `
             <div class="column-checkbox-row" data-col-id="${col.id}">
@@ -751,7 +733,6 @@ function populateColumnModal() {
                     <span class="column-drag-handle" title="גרור לשינוי הסדר"><i class="fa-solid fa-bars"></i></span>
                 </div>
                 <label for="colcheck-${col.id}" style="margin:0; color:#f0f6fc; cursor:pointer; flex:1;">${col.label}</label>
-                ${maControl}
             </div>
         `;
     }).join('');
@@ -826,7 +807,7 @@ function toggleColumn(colId, isChecked) {
     prefs[colId] = isChecked;
     localStorage.setItem('tableColumnPrefs', JSON.stringify(prefs));
     if (currentUser && db) {
-        db.collection('users').doc(currentUser.uid).set({ columnPrefs: prefs }, { merge: true }).catch(() => {});
+        db.collection('users').doc(currentUser.uid).set({ columnPrefs: prefs, columnPrefsVersion: 2 }, { merge: true }).catch(() => {});
     }
     applyColumnVisibility();
 }
@@ -834,7 +815,7 @@ function toggleColumn(colId, isChecked) {
 function applyColumnVisibility() {
     const prefs = getColumnPrefs();
     TABLE_COLUMNS.forEach(col => {
-        const visible = prefs[col.id] !== false;
+        const visible = Object.prototype.hasOwnProperty.call(prefs, col.id) ? prefs[col.id] === true : DEFAULT_VISIBLE_COLUMNS.includes(col.id);
         document.querySelectorAll(`[data-col="${col.id}"]`).forEach(el => {
             el.style.display = visible ? '' : 'none';
         });
@@ -958,6 +939,311 @@ function openCalculator() {
 function closeCalculator() {
     document.getElementById('calcModalOverlay').style.display = 'none';
 }
+
+function syncRiskCalculatorAccess() {
+    ['riskPanel', 'riskModal'].forEach(prefix => {
+        const actions = document.getElementById(`${prefix}Actions`);
+        const calculateButton = document.getElementById(`${prefix}CalculateBtn`);
+        if (!actions || !calculateButton) return;
+        actions.style.display = currentUser ? 'none' : 'flex';
+        calculateButton.disabled = !currentUser && guestRiskCalculatorUseCount >= GUEST_RISK_CALCULATOR_LIMIT;
+        calculateButton.textContent = calculateButton.disabled ? 'נדרשת התחברות' : 'חשב';
+    });
+}
+
+function handleRiskInput(prefix) {
+    configureRiskInputs(prefix);
+    if (currentUser) {
+        calculateRisk(prefix);
+    } else {
+        const summary = document.getElementById(`${prefix}Summary`);
+        if (summary) summary.textContent = 'מלא את הנתונים ולחץ על כפתור "חשב" כדי לקבל את התוצאה.';
+    }
+}
+
+function submitRiskCalculation(prefix) {
+    if (currentUser) {
+        calculateRisk(prefix);
+        return;
+    }
+    if (guestRiskCalculatorUseCount >= GUEST_RISK_CALCULATOR_LIMIT) {
+        alert('ניצלת את שני החישובים החינמיים כאורח. יש להתחבר לחשבון כדי להמשיך.');
+        syncRiskCalculatorAccess();
+        return;
+    }
+    guestRiskCalculatorUseCount += 1;
+    sessionStorage.setItem('guestRiskCalculatorUseCount', String(guestRiskCalculatorUseCount));
+    calculateRisk(prefix);
+    syncRiskCalculatorAccess();
+    if (guestRiskCalculatorUseCount >= GUEST_RISK_CALCULATOR_LIMIT) {
+        const summary = document.getElementById(`${prefix}Summary`);
+        if (summary) summary.textContent += ' ניצלת את שני החישובים החינמיים. לחישוב נוסף יש להתחבר לחשבון.';
+    }
+}
+
+function resetRiskCalculator(prefix) {
+    ['Mode', 'Ratio', 'Entry', 'Investment', 'Amount', 'Stop', 'Target'].forEach(suffix => {
+        const field = document.getElementById(`${prefix}${suffix}`);
+        if (!field) return;
+        if (suffix === 'Mode') field.value = 'prices';
+        else if (suffix === 'Ratio') field.value = '2';
+        else field.value = '';
+    });
+    clearRiskOutputs(prefix);
+    const summary = document.getElementById(`${prefix}Summary`);
+    if (summary) summary.textContent = currentUser ? 'הזן נתונים לחישוב אוטומטי.' : 'מלא את הנתונים ולחץ על כפתור "חשב" כדי לקבל את התוצאה.';
+    configureRiskInputs(prefix);
+    syncRiskCalculatorAccess();
+}
+
+function openRiskCalculator() {
+    document.getElementById('riskCalcModalOverlay').style.display = 'flex';
+    configureRiskInputs('riskModal');
+    syncRiskCalculatorAccess();
+    if (currentUser) calculateRisk('riskModal');
+    else handleRiskInput('riskModal');
+}
+
+function closeRiskCalculator() {
+    document.getElementById('riskCalcModalOverlay').style.display = 'none';
+}
+
+function switchInlineCalculator(calculator) {
+    const showYield = calculator === 'yield';
+    document.getElementById('inlineYieldPanel').style.display = showYield ? 'block' : 'none';
+    document.getElementById('inlineRiskPanel').style.display = showYield ? 'none' : 'block';
+    if (!showYield) {
+        const mode = document.getElementById('riskPanelMode');
+        document.getElementById('inlineRiskPanel').classList.toggle('has-selection', !!(mode && mode.value));
+    }
+    document.getElementById('inlineYieldTabBtn').classList.toggle('active', showYield);
+    document.getElementById('inlineRiskTabBtn').classList.toggle('active', !showYield);
+    syncRiskCalculatorAccess();
+    if (!showYield && currentUser) calculateRisk('riskPanel');
+}
+
+function calcPanelProfit() {
+    const action = document.getElementById('panelCalcAction').value;
+    const buy = parseFloat(document.getElementById('panelCalcBuyPrice').value);
+    const sell = parseFloat(document.getElementById('panelCalcSellPrice').value);
+    const resultInput = document.getElementById('panelCalcResult');
+
+    if (!Number.isFinite(buy) || !Number.isFinite(sell) || buy <= 0 || sell <= 0) {
+        resultInput.value = '';
+        resultInput.style.color = '#fff';
+        return;
+    }
+
+    const diff = sell - buy;
+    const basis = action === 'sell' ? sell : buy;
+    const percent = (diff / basis) * 100;
+    const sign = diff >= 0 ? '+' : '';
+    resultInput.value = `${sign}${diff.toFixed(2)}$  (${sign}${percent.toFixed(2)}%)`;
+    resultInput.style.color = diff >= 0 ? '#00ff87' : '#ff5555';
+}
+
+function configureRiskInputs(prefix) {
+    const mode = document.getElementById(`${prefix}Mode`).value;
+    const investmentInput = document.getElementById(`${prefix}Investment`);
+    const investmentLabel = document.getElementById(`${prefix}InvestmentLabel`);
+    const riskAmountInput = document.getElementById(`${prefix}Amount`);
+    const riskAmountLabel = document.getElementById(`${prefix}AmountLabel`);
+    const ratioInput = document.getElementById(`${prefix}Ratio`);
+    const stopInput = document.getElementById(`${prefix}Stop`);
+    const targetInput = document.getElementById(`${prefix}Target`);
+    const calculatePrices = mode === 'prices';
+    const calculateInvestment = mode === 'investment';
+    const calculateOutcomes = mode === 'outcomes';
+
+    investmentInput.readOnly = calculateInvestment;
+    investmentInput.placeholder = calculatePrices || calculateOutcomes ? 'הזן סכום השקעה' : 'יחושב אוטומטית';
+    investmentLabel.textContent = calculateInvestment ? 'סכום השקעה נדרש ($)' : 'סכום השקעה ($)';
+    riskAmountInput.readOnly = calculateOutcomes;
+    riskAmountInput.placeholder = calculateOutcomes ? 'יחושב אוטומטית' : 'כמה אתה מוכן להפסיד?';
+    riskAmountLabel.textContent = calculateOutcomes ? 'הפסד מחושב בסטופ ($)' : 'סכום שאני מוכן לסכן ($)';
+    stopInput.readOnly = calculatePrices;
+    targetInput.readOnly = calculatePrices;
+    stopInput.placeholder = calculatePrices ? 'יחושב אוטומטית' : 'הזן מחיר סטופ';
+    targetInput.placeholder = calculatePrices ? 'יחושב אוטומטית' : 'הזן מחיר יעד';
+    ratioInput.disabled = !calculatePrices;
+
+    const explanation = document.getElementById(`${prefix}Explanation`);
+    if (explanation) {
+        explanation.innerHTML = calculateInvestment
+            ? '<strong>הסבר: אני יודע איפה הסטופ והיעד שלי.</strong><br>רק עזור לי לדעת כמה כסף להשקיע וכמה מניות לקנות.'
+            : calculatePrices
+                ? '<strong>הסבר: אני יודע כמה כסף יש לי להשקיע.</strong><br>רק עזור לי למצוא את מחיר הסטופ ומחיר היעד.'
+                : '<strong>הסבר:</strong> אני יודע כמה כסף יש לי להשקיע ואת מחירי הכניסה, הסטופ והיעד.<br>חשב לי את הרווח וההפסד האפשריים.';
+    }
+}
+
+function setRiskOutput(prefix, field, value) {
+    const input = document.getElementById(`${prefix}${field}`);
+    if (input) input.value = value;
+}
+
+function clearRiskOutputs(prefix) {
+    ['SharesOutput', 'StopLossOutput', 'TargetProfitOutput', 'RiskPercentOutput', 'TargetPercentOutput']
+        .forEach(field => setRiskOutput(prefix, field, ''));
+}
+
+function calculateRisk(prefix) {
+    const modeInput = document.getElementById(`${prefix}Mode`);
+    if (!modeInput) return;
+    configureRiskInputs(prefix);
+
+    const mode = modeInput.value;
+    const ratio = Number(document.getElementById(`${prefix}Ratio`).value);
+    const entry = Number(document.getElementById(`${prefix}Entry`).value);
+    const investmentInput = document.getElementById(`${prefix}Investment`);
+    const riskAmountInput = document.getElementById(`${prefix}Amount`);
+    let riskAmount = Number(riskAmountInput.value);
+    const stopInput = document.getElementById(`${prefix}Stop`);
+    const targetInput = document.getElementById(`${prefix}Target`);
+    const summary = document.getElementById(`${prefix}Summary`);
+
+    summary.classList.remove('risk-summary-error', 'risk-summary-warning');
+    clearRiskOutputs(prefix);
+
+    if (!(entry > 0)) {
+        if (mode === 'prices') {
+            stopInput.value = '';
+            targetInput.value = '';
+        } else if (mode === 'investment') {
+            investmentInput.value = '';
+        } else {
+            riskAmountInput.value = '';
+        }
+        summary.textContent = 'הזן מחיר כניסה כדי להתחיל בחישוב.';
+        return;
+    }
+
+    let investment = Number(investmentInput.value);
+    let shares = 0;
+    let stop = 0;
+    let target = 0;
+
+    if (mode === 'prices') {
+        if (!(investment > 0) || !(riskAmount > 0) || !(ratio >= 1 && ratio <= 5)) {
+            stopInput.value = '';
+            targetInput.value = '';
+            summary.textContent = 'הזן סכום השקעה וסכום סיכון ובחר יחס סיכוי-סיכון. מחיר הסטופ והיעד יחושבו אוטומטית.';
+            return;
+        }
+
+        shares = investment / entry;
+        const riskPerShare = riskAmount / shares;
+        const rawStop = entry - riskPerShare;
+        if (!(rawStop > 0)) {
+            stopInput.value = '';
+            targetInput.value = '';
+            summary.textContent = 'סכום הסיכון גדול מדי ביחס להשקעה: מחיר הסטופ יוצא אפס או שלילי. הקטן את סכום הסיכון או הגדל את ההשקעה.';
+            summary.classList.add('risk-summary-error');
+            return;
+        }
+
+        // Round the stop upward to the nearest cent so the planned loss stays within the risk budget.
+        stop = Math.ceil((rawStop - 1e-10) * 100) / 100;
+        target = Math.round((entry + riskPerShare * ratio) * 100) / 100;
+        if (stop >= entry || !(target > entry)) {
+            stopInput.value = '';
+            targetInput.value = '';
+            summary.textContent = 'סכום הסיכון קטן מדי ביחס למחיר המניה כדי לקבוע סטופ במרווח של סנט אחד. הגדל מעט את סכום הסיכון.';
+            summary.classList.add('risk-summary-warning');
+            return;
+        }
+        stopInput.value = stop.toFixed(2);
+        targetInput.value = target.toFixed(2);
+    } else if (mode === 'investment') {
+        stop = Number(stopInput.value);
+        target = Number(targetInput.value);
+        if (!(riskAmount > 0)) {
+            investmentInput.value = '';
+            summary.textContent = 'הזן את סכום ההפסד המרבי שאתה מוכן לספוג.';
+            return;
+        }
+        if (!(stop > 0) || !(target > 0)) {
+            investmentInput.value = '';
+            summary.textContent = 'הזן מחיר סטופ ומחיר יעד. סכום ההשקעה וכמות המניות יחושבו אוטומטית לפי סכום ההפסד המרבי.';
+            return;
+        }
+        if (stop >= entry) {
+            investmentInput.value = '';
+            summary.textContent = 'בפוזיציית קנייה (לונג), מחיר הסטופ חייב להיות נמוך ממחיר הכניסה.';
+            summary.classList.add('risk-summary-error');
+            return;
+        }
+        if (target <= entry) {
+            investmentInput.value = '';
+            summary.textContent = 'בפוזיציית קנייה (לונג), מחיר היעד חייב להיות גבוה ממחיר הכניסה.';
+            summary.classList.add('risk-summary-error');
+            return;
+        }
+        const riskPerShare = entry - stop;
+        shares = riskAmount / riskPerShare;
+        investment = shares * entry;
+        investmentInput.value = investment.toFixed(2);
+    } else {
+        investment = Number(investmentInput.value);
+        stop = Number(stopInput.value);
+        target = Number(targetInput.value);
+        if (!(investment > 0) || !(stop > 0) || !(target > 0)) {
+            riskAmountInput.value = '';
+            summary.textContent = 'הזן סכום השקעה, מחיר סטופ ומחיר יעד. ההפסד המרבי, הרווח האפשרי ויחס הסיכוי-סיכון יחושבו אוטומטית.';
+            return;
+        }
+        if (stop >= entry) {
+            riskAmountInput.value = '';
+            summary.textContent = 'בפוזיציית קנייה (לונג), מחיר הסטופ חייב להיות נמוך ממחיר הכניסה.';
+            summary.classList.add('risk-summary-error');
+            return;
+        }
+        if (target <= entry) {
+            riskAmountInput.value = '';
+            summary.textContent = 'בפוזיציית קנייה (לונג), מחיר היעד חייב להיות גבוה ממחיר הכניסה.';
+            summary.classList.add('risk-summary-error');
+            return;
+        }
+        shares = investment / entry;
+        riskAmount = (entry - stop) * shares;
+        riskAmountInput.value = riskAmount.toFixed(2);
+    }
+
+    if (mode !== 'outcomes' && !(riskAmount > 0)) return;
+    if (mode !== 'prices' && !(shares > 0)) return;
+    if (mode === 'prices') {
+        // Shares were calculated from the planned investment in this mode.
+    }
+    if (mode === 'investment') {
+        // Shares and investment were calculated from the maximum loss budget in this mode.
+    }
+    if (mode === 'outcomes') {
+        // Shares and risk amount were calculated from the entered investment in this mode.
+    }
+
+    const actualRisk = (entry - stop) * shares;
+    const potentialProfit = (target - entry) * shares;
+    const actualRatio = potentialProfit / actualRisk;
+    const riskPercent = (actualRisk / investment) * 100;
+    const targetPercent = (potentialProfit / investment) * 100;
+
+    setRiskOutput(prefix, 'SharesOutput', shares.toFixed(4));
+    setRiskOutput(prefix, 'StopLossOutput', `$${actualRisk.toFixed(2)}`);
+    setRiskOutput(prefix, 'TargetProfitOutput', `$${potentialProfit.toFixed(2)}`);
+    setRiskOutput(prefix, 'RiskPercentOutput', `${riskPercent.toFixed(2)}%`);
+    setRiskOutput(prefix, 'TargetPercentOutput', `${targetPercent >= 0 ? '+' : ''}${targetPercent.toFixed(2)}%`);
+
+    const calculationNote = mode === 'prices'
+        ? `מחיר סטופ ויעד חושבו לפי יחס 1:${ratio}.`
+        : mode === 'investment'
+            ? 'סכום ההשקעה וכמות המניות חושבו לפי הפסד מרבי שהגדרת.'
+            : 'ההפסד והרווח חושבו לפי סכום ההשקעה ומחירי הסטופ והיעד שהזנת.';
+    const roundingNote = mode === 'prices' && actualRisk < riskAmount - 0.01
+        ? ` בגלל עיגול מחיר הסטופ לסנט, הסיכון המחושב נמוך מעט מתקציב הסיכון ($${riskAmount.toFixed(2)}).`
+        : '';
+    summary.textContent = `סכום השקעה: $${investment.toFixed(2)} | כמות מניות: ${shares.toFixed(4)} | סטופ: $${stop.toFixed(2)} | יעד: $${target.toFixed(2)} | הפסד בסטופ: $${actualRisk.toFixed(2)} | רווח ביעד: $${potentialProfit.toFixed(2)} | יחס בפועל: 1:${actualRatio.toFixed(2)}. ${calculationNote}${roundingNote} החישוב אינו כולל עמלות, החלקת מחיר או מס.`;
+}
+
 function calcProfit() {
     const action = document.getElementById('calcAction').value;
     const buy = parseFloat(document.getElementById('calcBuyPrice').value);
@@ -1261,6 +1547,18 @@ async function deleteStock(index) {
     renderTable();
 }
 
+function formatDateDDMMYYYY(dateValue) {
+    if (!dateValue) return 'לא זמין';
+    const raw = String(dateValue).trim();
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    const slash = raw.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/);
+    if (slash) return `${slash[1].padStart(2, '0')}/${slash[2].padStart(2, '0')}/${slash[3]}`;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+    return `${String(parsed.getDate()).padStart(2, '0')}/${String(parsed.getMonth() + 1).padStart(2, '0')}/${parsed.getFullYear()}`;
+}
+
 function renderTable() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = ''; 
@@ -1301,12 +1599,7 @@ function renderTable() {
         const peText = typeof stock.peRatio === 'number' ? stock.peRatio.toFixed(2) : 'לא זמין';
         const marketCapText = typeof stock.marketCap === 'number' ? formatMarketCap(stock.marketCap) : 'לא זמין';
         const dividendYieldText = typeof stock.dividendYield === 'number' ? `${stock.dividendYield.toFixed(2)}%` : 'לא זמין';
-        const earningsDateText = stock.earningsDate || 'לא זמין';
-        const maPeriod = getMovingAveragePeriod();
-        // הערה: חישוב ממוצע נע ומדד העוצמה היחסית (RSI) דורשים היסטוריית מחירים (candles),
-        // שאינה נגישה בתוכנית ה-Finnhub החינמית הנוכחית - לכן מוצג "לא זמין" עד לחיבור מקור נתונים תומך.
-        const movingAverageText = `לא זמין (${maPeriod} ימים)`;
-        const rsiText = 'לא זמין';
+        const earningsDateText = formatDateDDMMYYYY(stock.earningsDate);
 
         const cells = [
             ['symbol', stock.symbol || '', 'font-weight:bold; font-size: 1.1rem;'],
@@ -1323,19 +1616,12 @@ function renderTable() {
             ['openPrice', hasOpen ? `$${stock.openPrice.toFixed(2)}` : 'לא זמין'],
             ['prevClose', hasPrevClose ? `$${stock.prevClose.toFixed(2)}` : 'לא זמין'],
             ['dailyRange', dailyRangeText],
-            ['bidPrice', 'לא זמין', 'color:#8b949e;'],
-            ['askPrice', 'לא זמין', 'color:#8b949e;'],
-            ['spread', 'לא זמין', 'color:#8b949e;'],
-            ['preMarket', 'לא זמין', 'color:#8b949e;'],
-            ['postMarket', 'לא זמין', 'color:#8b949e;'],
             ['dailyChangeDollar', hasDayChangeDollar ? `${dayChangeSign}$${Math.abs(stock.dayChangeDollar).toFixed(2)}` : 'לא זמין', `font-weight:bold; color: ${dayChangeColorD};`, 'ltr'],
             ['dailyChangePercent', hasDayChangePercent ? `${dayChangeSign}${Math.abs(stock.dayChangePercent).toFixed(2)}%` : 'לא זמין', `font-weight:bold; color: ${dayChangeColorP};`, 'ltr'],
             ['earningsDate', earningsDateText, '', 'rtl'],
             ['peRatio', peText],
             ['marketCap', marketCapText],
-            ['dividendYield', dividendYieldText],
-            ['movingAverage', movingAverageText, 'color:#8b949e; font-size:0.85em;', 'rtl'],
-            ['rsi', rsiText, 'color:#8b949e;']
+            ['dividendYield', dividendYieldText]
         ];
 
         cells.forEach(([col, value, style, dir, className]) => {
@@ -1383,7 +1669,6 @@ function renderTable() {
     updateForecastStockList();
     applyColumnVisibility();
     applyColumnOrder();
-    updateMovingAverageHeaderLabel();
     autoFillMissingRiskData();
     autoFillMissingExtendedData();
 }
@@ -1398,9 +1683,6 @@ function formatMarketCap(capInMillions) {
 }
 
 // ===== שליפת נתונים מורחבים לעמודות החדשות (פתיחה/סגירה קודמת/טווח/שינוי יומי/יסודות) =====
-// שימו לב: ביקוש/היצע/מרווח/טרום-מסחר/טרום-מאוחר/ממוצע נע/RSI דורשים גישה בתשלום
-// (bid/ask, extended-hours quotes, ו-candles) שאינה כלולה במפתח ה-Finnhub החינמי הנוכחי,
-// ולכן אינם נשלפים כאן ומוצגים כ"לא זמין" בטבלה.
 async function fetchExtendedMetrics(symbol, currentPrice, quoteData) {
     const result = {
         openPrice: null, prevClose: null, dayHigh: null, dayLow: null,
@@ -1502,4 +1784,52 @@ function updateChart() {
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
+}
+
+
+function toggleCalculatorMinimize() {
+    const box = document.querySelector('.inline-calculators-box');
+    if (!box) return;
+
+    box.classList.toggle('calculator-minimized');
+
+    const isMinimized = box.classList.contains('calculator-minimized');
+    const btn = document.getElementById('calculatorMinimizeBtn');
+    if (btn) {
+        btn.innerHTML = isMinimized
+            ? '<i class="fa-solid fa-chevron-down"></i>'
+            : '<i class="fa-solid fa-chevron-up"></i>';
+        btn.setAttribute('aria-label', isMinimized ? 'הרחב מחשבונים' : 'צמצם מחשבונים');
+        btn.setAttribute('title', isMinimized ? 'הרחב מחשבונים' : 'צמצם מחשבונים');
+    }
+}
+
+// Reveal the selected risk-calculation workflow only after the visitor chooses one.
+document.addEventListener('DOMContentLoaded', () => {
+    const mode = document.getElementById('riskPanelMode');
+    if (mode) {
+        mode.value = '';
+        document.getElementById('inlineRiskPanel')?.classList.remove('has-selection');
+    }
+});
+
+function handleInlineRiskMode() {
+    const mode = document.getElementById('riskPanelMode');
+    const panel = document.getElementById('inlineRiskPanel');
+    if (!mode || !panel) return;
+    panel.classList.toggle('has-selection', !!mode.value);
+    if (!mode.value) return;
+
+    // בחירת אופן חישוב פותחת את אזור המחשבון אוטומטית.
+    const box = document.querySelector('.inline-calculators-box');
+    box?.classList.remove('calculator-minimized');
+    const btn = document.getElementById('calculatorMinimizeBtn');
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+        btn.setAttribute('aria-label', 'צמצם מחשבונים');
+        btn.setAttribute('title', 'צמצם מחשבונים');
+    }
+
+    configureRiskInputs('riskPanel');
+    handleRiskInput('riskPanel');
 }
