@@ -1,20 +1,4 @@
-
-<!-- do not change the markup -->
-<a href="#">
-  Checkout
-</a>
-
-<!-- 
-1. make look like a button
-2. change text color red on hover
-
-Cannot change html, only css.
-Look closely at
--->  
-
-<div></div>
-<div></div>
-<div></div><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -40,6 +24,7 @@ Look closely at
             <button class="tab-btn" onclick="switchTab('login')" id="loginTabBtn"><i class="fa-solid fa-user-lock"></i> התחבר / הרשמה</button>
             <button class="tab-btn admin-tab-btn" onclick="switchTab('admin')" id="adminTabBtn"><i class="fa-solid fa-user-gear"></i> ניהול משתמשים (אישורים)</button>
             <button class="tab-btn" onclick="openCalculator()"><i class="fa-solid fa-calculator"></i> מחשבון תשואה</button>
+            <button class="tab-btn" onclick="openRiskCalculator()"><i class="fa-solid fa-shield-halved"></i> מחשבון ניהול סיכונים</button>
         </div>
 
         <div class="user-status" id="userStatus">
@@ -66,7 +51,8 @@ Look closely at
             <div class="market-grid" id="marketGrid"></div>
         </div>
 
-        <div class="container">
+        <div class="top-tools-row">
+        <div class="container stock-entry-box">
             <h3 class="box-title">הוסף מניות ובנה את טבלת המעקב המנצחת שלך.</h3>
             <div class="form-grid">
                 <div class="input-group">
@@ -83,6 +69,80 @@ Look closely at
                 </div>
                 <button class="btn-add" id="addBtn" onclick="addStock()"><i class="fa-solid fa-plus"></i> הוסף מניה לתיק</button>
             </div>
+        </div>
+
+        <div class="calculator-column">
+        <div class="container inline-calculators-box">
+            <div class="calculator-box-header"><h3 class="box-title"><i class="fa-solid fa-calculator"></i> מחשבונים</h3></div>
+            <div class="calculator-tabs">
+                <button type="button" class="calculator-tab-btn active" id="inlineRiskTabBtn" onclick="switchInlineCalculator('risk')">מחשבון סיכון לעסקה</button>
+                <button type="button" class="calculator-tab-btn" id="inlineYieldTabBtn" onclick="switchInlineCalculator('yield')">מחשבון תשואה</button>
+            </div>
+
+            <div id="inlineYieldPanel" style="display: none;">
+                <div class="input-group">
+                    <label for="panelCalcAction">פעולה</label>
+                    <select id="panelCalcAction" onchange="calcPanelProfit()">
+                        <option value="buy">קנייה</option>
+                        <option value="sell">מכירה</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="panelCalcBuyPrice">שער קניה ($)</label>
+                    <input type="number" step="0.01" id="panelCalcBuyPrice" oninput="calcPanelProfit()" placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label for="panelCalcSellPrice">שער מכירה ($)</label>
+                    <input type="number" step="0.01" id="panelCalcSellPrice" oninput="calcPanelProfit()" placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label for="panelCalcResult">רווח / הפסד</label>
+                    <input type="text" id="panelCalcResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
+                </div>
+            </div>
+
+            <div id="inlineRiskPanel">
+                <h4 class="risk-panel-heading">יחס סיכוי-סיכון</h4>
+                <div class="risk-mode-row">
+                    <div class="input-group">
+                        <label for="riskPanelMode">מה לחשב?</label>
+                        <select id="riskPanelMode" onchange="handleInlineRiskMode()">
+                            <option value="" selected disabled>בחר מה לחשב...</option><option value="prices">מחיר סטופ ויעד לפי סכום השקעה</option>
+                            <option value="investment">סכום השקעה לפי סטופ ויעד</option>
+                            <option value="outcomes">רווח והפסד לפי סכום השקעה</option>
+                        </select>
+                    </div>
+                    <button type="button" class="calculator-minimize-btn" id="calculatorMinimizeBtn" onclick="toggleCalculatorMinimize()" aria-label="צמצם מחשבונים" title="צמצם מחשבונים"><i class="fa-solid fa-chevron-up"></i></button>
+                </div>
+                <p class="risk-explanation" id="riskPanelExplanation">הסבר: אני יודע כמה כסף יש לי להשקיע. רק עזור לי למצוא את מחיר הסטופ ומחיר היעד.</p>
+                <div class="risk-fields-grid">
+                    <div class="input-group">
+                        <label for="riskPanelRatio">יחס סיכוי-סיכון רצוי</label>
+                        <select id="riskPanelRatio" onchange="handleRiskInput('riskPanel')">
+                            <option value="1">1:1</option><option value="2" selected>1:2</option><option value="3">1:3</option><option value="4">1:4</option><option value="5">1:5</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label for="riskPanelEntry">מחיר כניסה ($)</label><input type="number" min="0" step="0.01" id="riskPanelEntry" oninput="handleRiskInput('riskPanel')" placeholder="0.00"></div>
+                    <div class="input-group"><label for="riskPanelInvestment" id="riskPanelInvestmentLabel">סכום השקעה ($)</label><input type="number" min="0" step="0.01" id="riskPanelInvestment" oninput="handleRiskInput('riskPanel')" placeholder="0.00"></div>
+                    <div class="input-group"><label for="riskPanelAmount" id="riskPanelAmountLabel">סכום שאני מוכן לסכן ($)</label><input type="number" min="0" step="0.01" id="riskPanelAmount" oninput="handleRiskInput('riskPanel')" placeholder="0.00"></div>
+                    <div class="input-group"><label for="riskPanelStop">מחיר סטופ ($)</label><input type="number" min="0" step="0.01" id="riskPanelStop" oninput="handleRiskInput('riskPanel')" readonly placeholder="0.00"></div>
+                    <div class="input-group"><label for="riskPanelTarget">מחיר יעד ($)</label><input type="number" min="0" step="0.01" id="riskPanelTarget" oninput="handleRiskInput('riskPanel')" readonly placeholder="0.00"></div>
+                </div>
+                <div class="risk-output-grid">
+                    <div class="input-group"><label for="riskPanelSharesOutput">כמות מניות מחושבת</label><input type="text" id="riskPanelSharesOutput" readonly placeholder="—"></div>
+                    <div class="input-group"><label for="riskPanelStopLossOutput">הפסד צפוי בסטופ ($)</label><input type="text" id="riskPanelStopLossOutput" readonly placeholder="—"></div>
+                    <div class="input-group"><label for="riskPanelTargetProfitOutput">רווח צפוי ביעד ($)</label><input type="text" id="riskPanelTargetProfitOutput" readonly placeholder="—"></div>
+                    <div class="input-group"><label for="riskPanelRiskPercentOutput">סיכון מתוך ההשקעה</label><input type="text" id="riskPanelRiskPercentOutput" readonly placeholder="—"></div>
+                    <div class="input-group"><label for="riskPanelTargetPercentOutput">תשואה אפשרית</label><input type="text" id="riskPanelTargetPercentOutput" readonly placeholder="—"></div>
+                </div>
+                <div class="risk-calculator-actions" id="riskPanelActions">
+                    <button type="button" class="btn-add risk-calculate-btn" id="riskPanelCalculateBtn" onclick="submitRiskCalculation('riskPanel')">חשב</button>
+                    <button type="button" class="risk-reset-btn" onclick="resetRiskCalculator('riskPanel')">איפוס</button>
+                </div>
+                <div class="risk-summary" id="riskPanelSummary" aria-live="polite">מלא את הנתונים ולחץ על כפתור "חשב" כדי לקבל את התוצאה.</div>
+            </div>
+        </div>
+        </div>
         </div>
 
         <div class="table-options-bar">
@@ -107,19 +167,12 @@ Look closely at
                         <th data-col="openPrice" dir="rtl">Open<span class="th-sub">מחיר פתיחה</span></th>
                         <th data-col="prevClose" dir="rtl">Prev Close<span class="th-sub">מחיר סגירה קודם</span></th>
                         <th data-col="dailyRange" dir="rtl">Daily Range<span class="th-sub">טווח יומי</span></th>
-                        <th data-col="bidPrice" dir="rtl">Bid<span class="th-sub">ביקוש</span></th>
-                        <th data-col="askPrice" dir="rtl">Ask<span class="th-sub">היצע</span></th>
-                        <th data-col="spread" dir="rtl">Spread<span class="th-sub">מרווח</span></th>
-                        <th data-col="preMarket" dir="rtl">Pre-Market<span class="th-sub">טרום-מסחר</span></th>
-                        <th data-col="postMarket" dir="rtl">Post-Market<span class="th-sub">טרום-מאוחר</span></th>
                         <th data-col="dailyChangeDollar" dir="rtl">Daily Chg ($)<span class="th-sub">שינוי יומי ב-$</span></th>
                         <th data-col="dailyChangePercent" dir="rtl">Daily Chg (%)<span class="th-sub">שינוי יומי ב-%</span></th>
                         <th data-col="earningsDate" dir="rtl">Earnings<span class="th-sub">מועד דוח כספי</span></th>
                         <th data-col="peRatio" dir="rtl">P/E<span class="th-sub">מכפיל רווח</span></th>
                         <th data-col="marketCap" dir="rtl">Market Cap<span class="th-sub">שווי שוק</span></th>
                         <th data-col="dividendYield" dir="rtl">Dividend<span class="th-sub">תשואת דיבידנד</span></th>
-                        <th data-col="movingAverage" dir="rtl">Moving Avg<span class="th-sub" id="movingAverageHeaderSub">ממוצע נע</span></th>
-                        <th data-col="rsi" dir="rtl">RSI<span class="th-sub">מדד העוצמה היחסית</span></th>
                         <th data-col="action" dir="rtl">Action<span class="th-sub">פעולה</span></th>
                         <th data-col="news" dir="rtl">News<span class="th-sub">חדשות</span></th>
                     </tr>
@@ -181,49 +234,32 @@ Look closely at
         </div>
     </div>
 
-    <!-- בלוק התחברות / הרשמה + מנוי -->
+    <!-- בלוק התחברות / הרשמה -->
     <div id="loginTab" class="tab-content">
         <div class="auth-row">
-        <div class="container">
-            <h3 class="box-title"><i class="fa-solid fa-user-shield"></i> התחברות / הרשמה למערכת</h3>
-            
-            <div class="input-group">
-                <label for="authEmail">אימייל</label>
-                <input type="email" id="authEmail" placeholder="user@example.com">
-            </div>
-            <div class="input-group">
-                <label for="authPassword">סיסמה</label>
-                <input type="password" id="authPassword" placeholder="******">
-            </div>
+            <div class="container">
+                <h3 class="box-title"><i class="fa-solid fa-user-shield"></i> התחברות / הרשמה למערכת</h3>
+                
+                <div class="input-group">
+                    <label for="authEmail">אימייל</label>
+                    <input type="email" id="authEmail" placeholder="user@example.com">
+                </div>
+                <div class="input-group">
+                    <label for="authPassword">סיסמה</label>
+                    <input type="password" id="authPassword" placeholder="******">
+                </div>
 
-            <div class="auth-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-action" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> התחבר</button>
-                <button class="btn-action" style="background: #388bfd;" onclick="register()"><i class="fa-solid fa-user-plus"></i> בקש הרשמה</button>
-            </div>
+                <div class="auth-actions" style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn-action" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> התחבר</button>
+                    <button class="btn-action" style="background: #388bfd;" onclick="register()"><i class="fa-solid fa-user-plus"></i> בקש הרשמה</button>
+                </div>
 
-            <div style="margin-top: 12px; text-align: center;">
-                <a href="#" onclick="forgotPassword(); return false;" style="color: #8b949e; font-size: 0.9em; text-decoration: underline;">
-                    שכחתי סיסמה
-                </a>
+                <div style="margin-top: 12px; text-align: center;">
+                    <a href="#" onclick="forgotPassword(); return false;" style="color: #8b949e; font-size: 0.9em; text-decoration: underline;">
+                        שכחתי סיסמה
+                    </a>
+                </div>
             </div>
-        </div>
-
-        <div class="pricing-box">
-            <h3 class="box-title"><i class="fa-solid fa-crown"></i> מנוי להתנגשות התיקים</h3>
-            <div class="price-tag">24.99 ₪</div>
-            <div class="price-sub">לחודש בלבד</div>
-            <div style="color:#c9d1d9; font-size:1.05rem; font-weight:700; margin-bottom: 20px;">או 249.99 ₪ לשנה</div>
-            <div class="payment-methods">
-                <div class="payment-badge"><i class="fa-solid fa-money-bill-transfer"></i> Bit</div>
-                <div class="payment-badge"><i class="fa-solid fa-money-bill-transfer"></i> PayBox</div>
-            </div>
-            <p style="color:#c9d1d9; font-size:0.9rem; margin-bottom: 20px; line-height: 1.6;">
-                לתשלום והפעלת המנוי, שילחו הודעה למנהל ותקבלו פרטי תשלום מלאים.
-            </p>
-            <button class="btn-action" style="background: linear-gradient(135deg, #ffc107, #d69e2e);" onclick="openContactModal('subscribe')">
-                <i class="fa-solid fa-hand-pointer"></i> לחצו עליי
-            </button>
-        </div>
         </div>
     </div>
 
@@ -286,6 +322,43 @@ Look closely at
                 <label for="calcResult">רווח / הפסד</label>
                 <input type="text" id="calcResult" readonly placeholder="—" style="font-weight: bold; cursor: default;">
             </div>
+        </div>
+    </div>
+
+    <!-- מודאל מחשבון ניהול סיכונים -->
+    <div id="riskCalcModalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeRiskCalculator()"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="box-title"><i class="fa-solid fa-shield-halved"></i> יחס סיכוי-סיכון</h3>
+            <div class="input-group">
+                <label for="riskModalMode">מה לחשב?</label>
+                <select id="riskModalMode" onchange="configureRiskInputs('riskModal'); handleRiskInput('riskModal')">
+                    <option value="" selected disabled>בחר מה לחשב...</option><option value="prices">מחיר סטופ ויעד לפי סכום השקעה</option>
+                    <option value="investment">סכום השקעה לפי סטופ ויעד</option>
+                    <option value="outcomes">רווח והפסד לפי סכום השקעה</option>
+                </select>
+            </div>
+            <p class="risk-explanation" id="riskModalExplanation">הסבר: אני יודע כמה כסף יש לי להשקיע. רק עזור לי למצוא את מחיר הסטופ ומחיר היעד.</p>
+            <div class="risk-fields-grid">
+                <div class="input-group"><label for="riskModalRatio">יחס סיכוי-סיכון רצוי</label><select id="riskModalRatio" onchange="handleRiskInput('riskModal')"><option value="1">1:1</option><option value="2" selected>1:2</option><option value="3">1:3</option><option value="4">1:4</option><option value="5">1:5</option></select></div>
+                <div class="input-group"><label for="riskModalEntry">מחיר כניסה ($)</label><input type="number" min="0" step="0.01" id="riskModalEntry" oninput="handleRiskInput('riskModal')" placeholder="0.00"></div>
+                <div class="input-group"><label for="riskModalInvestment" id="riskModalInvestmentLabel">סכום השקעה ($)</label><input type="number" min="0" step="0.01" id="riskModalInvestment" oninput="handleRiskInput('riskModal')" placeholder="0.00"></div>
+                <div class="input-group"><label for="riskModalAmount" id="riskModalAmountLabel">סכום שאני מוכן לסכן ($)</label><input type="number" min="0" step="0.01" id="riskModalAmount" oninput="handleRiskInput('riskModal')" placeholder="0.00"></div>
+                <div class="input-group"><label for="riskModalStop">מחיר סטופ ($)</label><input type="number" min="0" step="0.01" id="riskModalStop" oninput="handleRiskInput('riskModal')" readonly placeholder="0.00"></div>
+                <div class="input-group"><label for="riskModalTarget">מחיר יעד ($)</label><input type="number" min="0" step="0.01" id="riskModalTarget" oninput="handleRiskInput('riskModal')" readonly placeholder="0.00"></div>
+            </div>
+            <div class="risk-output-grid">
+                <div class="input-group"><label for="riskModalSharesOutput">כמות מניות מחושבת</label><input type="text" id="riskModalSharesOutput" readonly placeholder="—"></div>
+                <div class="input-group"><label for="riskModalStopLossOutput">הפסד צפוי בסטופ ($)</label><input type="text" id="riskModalStopLossOutput" readonly placeholder="—"></div>
+                <div class="input-group"><label for="riskModalTargetProfitOutput">רווח צפוי ביעד ($)</label><input type="text" id="riskModalTargetProfitOutput" readonly placeholder="—"></div>
+                <div class="input-group"><label for="riskModalRiskPercentOutput">סיכון מתוך ההשקעה</label><input type="text" id="riskModalRiskPercentOutput" readonly placeholder="—"></div>
+                <div class="input-group"><label for="riskModalTargetPercentOutput">תשואה אפשרית</label><input type="text" id="riskModalTargetPercentOutput" readonly placeholder="—"></div>
+            </div>
+            <div class="risk-calculator-actions" id="riskModalActions">
+                <button type="button" class="btn-add risk-calculate-btn" id="riskModalCalculateBtn" onclick="submitRiskCalculation('riskModal')">חשב</button>
+                <button type="button" class="risk-reset-btn" onclick="resetRiskCalculator('riskModal')">איפוס</button>
+            </div>
+            <div class="risk-summary" id="riskModalSummary" aria-live="polite">מלא את הנתונים ולחץ על כפתור "חשב" כדי לקבל את התוצאה.</div>
         </div>
     </div>
 
