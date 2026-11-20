@@ -114,6 +114,26 @@ select:focus { outline: none; border-color: #ffc107; }
     background: #161b22; border: 1px solid #30363d; border-radius: 20px; padding: 30px;
     width: 100%; max-width: 420px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.6);
 }
+#riskCalcModalOverlay .modal-box {
+    width: min(680px, 100%);
+    max-width: 680px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    padding: 24px;
+}
+#riskCalcModalOverlay .risk-fields-grid,
+#riskCalcModalOverlay .risk-output-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+}
+#riskCalcModalOverlay .input-group { margin-bottom: 10px; }
+.risk-explanation {
+    margin: -8px 0 18px;
+    color: #c9d1d9;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
 .modal-close {
     position: absolute; top: 15px; left: 15px; background: transparent; border: none;
     color: #8b949e; font-size: 1.3rem; cursor: pointer;
@@ -145,12 +165,6 @@ select:focus { outline: none; border-color: #ffc107; }
 .column-drag-handle:active { cursor: grabbing; color: #ffc107; }
 .column-checkbox-row.dragging { opacity: 0.5; border-color: #ffc107; }
 .column-checkbox-row.drag-over { border-color: #ffc107; background: rgba(255, 193, 7, 0.08); }
-
-/* בורר תקופת ממוצע נע בתוך רשימת העמודות */
-.ma-period-select {
-    background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px;
-    padding: 6px 8px; color: #fff; font-size: 0.85rem; flex-shrink: 0; cursor: pointer;
-}
 
 /* מתג בחירת אופן יעד רווח (אחוזים / מחיר) בחלון תחזית תשואה */
 .profit-mode-toggle { display: flex; gap: 8px; }
@@ -322,3 +336,182 @@ input, select, textarea { max-width: 100%; }
     .table-options-bar { flex-direction: column; }
     .auth-actions { flex-direction: column; }
 }
+
+/* אזור טופס הוספת מניה והמחשבונים */
+.top-tools-row {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 25px;
+    width: 100%;
+    max-width: 1300px;
+    margin: 0 auto 30px;
+}
+.top-tools-row > .stock-entry-box {
+    flex: 1.5 1 620px;
+    max-width: 800px;
+    margin: 0;
+}
+.calculator-column {
+    flex: 1 1 420px;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+.inline-calculators-box {
+    width: 100%;
+    max-width: 560px;
+    margin: 0;
+}
+.calculator-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.calculator-tab-btn {
+    flex: 1;
+    background: rgba(13,17,23,0.6);
+    border: 1px solid #30363d;
+    color: #8b949e;
+    padding: 9px 7px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+.calculator-tab-btn.active {
+    color: #ffc107;
+    border-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+}
+.risk-panel-heading {
+    color: #f0f6fc;
+    text-align: center;
+    font-size: 1.1rem;
+    margin: 0 0 15px;
+}
+.risk-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 14px;
+}
+.risk-fields-grid .input-group {
+    min-width: 0;
+}
+.risk-fields-grid input[readonly] {
+    cursor: default;
+    opacity: 0.9;
+}
+.risk-fields-grid input:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+.risk-output-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 14px;
+    margin-top: 2px;
+}
+.risk-output-grid .input-group {
+    min-width: 0;
+}
+.risk-output-grid input[readonly] {
+    cursor: default;
+    opacity: 0.9;
+    font-weight: 700;
+}
+.risk-summary {
+    background: rgba(13,17,23,0.6);
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    text-align: center;
+}
+.risk-summary-error {
+    color: #ff7777;
+    border-color: rgba(255,85,85,0.45);
+}
+.risk-summary-warning {
+    color: #ffd36a;
+    border-color: rgba(255,193,7,0.45);
+}
+@media (max-width: 900px) {
+    .top-tools-row {
+        flex-direction: column;
+        align-items: center;
+    }
+    .top-tools-row > .stock-entry-box,
+    .top-tools-row > .calculator-column {
+        width: 100%;
+        max-width: 800px;
+    }
+}
+@media (max-width: 480px) {
+    #riskCalcModalOverlay .risk-fields-grid,
+    #riskCalcModalOverlay .risk-output-grid,
+    .risk-fields-grid,
+    .risk-output-grid {
+        grid-template-columns: 1fr;
+    }
+    .calculator-tab-btn {
+        font-size: 0.78rem;
+        padding: 9px 5px;
+    }
+}
+
+
+/* פעולות מחשבון ניהול סיכונים */
+.risk-calculator-actions { display: flex; gap: 10px; align-items: stretch; margin: 8px 0 12px; }
+.risk-calculator-actions .risk-calculate-btn { flex: 1; grid-column: auto; margin-top: 0; }
+.risk-reset-btn { background: rgba(139,148,158,0.14); color: #c9d1d9; border: 1px solid #484f58; border-radius: 10px; padding: 12px 20px; font-weight: 700; cursor: pointer; }
+.risk-reset-btn:hover { background: rgba(139,148,158,0.25); }
+.risk-calculate-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+
+/* Compact initial calculator state */
+.calculator-box-header { display:flex; align-items:center; justify-content:center; position:relative; }
+.calculator-box-header .box-title { margin-bottom: 16px; }
+.risk-mode-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.risk-mode-row .input-group {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+.calculator-minimize-btn {
+    flex: 0 0 42px;
+    align-self: flex-end;
+    height: 42px;
+    margin: 0 0 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    border-radius: 8px;
+    padding: 0;
+    cursor: pointer;
+}
+.calculator-minimize-btn:hover { color: #f0f6fc; border-color: #8b949e; }
+.inline-calculators-box.calculator-minimized #inlineYieldPanel,
+.inline-calculators-box.calculator-minimized #inlineRiskPanel .risk-explanation,
+.inline-calculators-box.calculator-minimized #inlineRiskPanel .risk-fields-grid,
+.inline-calculators-box.calculator-minimized #inlineRiskPanel .risk-output-grid,
+.inline-calculators-box.calculator-minimized #inlineRiskPanel .risk-calculator-actions,
+.inline-calculators-box.calculator-minimized #inlineRiskPanel .risk-summary { display:none !important; }
+#inlineRiskPanel:not(.has-selection) .risk-explanation,
+#inlineRiskPanel:not(.has-selection) .risk-fields-grid,
+#inlineRiskPanel:not(.has-selection) .risk-output-grid,
+#inlineRiskPanel:not(.has-selection) .risk-calculator-actions,
+#inlineRiskPanel:not(.has-selection) .risk-summary { display:none !important; }
+.inline-calculators-box.calculator-minimized #inlineRiskPanel { display:block !important; }
